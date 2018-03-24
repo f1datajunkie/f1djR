@@ -1,0 +1,109 @@
+---
+title: "F1 2017 Race Ergast Report"
+output:
+  html_document:
+    self_contained: false
+    lib_dir: includes
+---
+
+# Race Report
+
+F1 race report...
+
+```{r setup, include=FALSE,message=FALSE,warning=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE)
+opts_chunk$set(fig.path = "images/f1_2017_mal-")
+
+library(f1djR)
+```
+
+```{r echo=FALSE}
+library(grid)
+library(gridExtra)
+```
+
+```{r}
+
+year=2017
+raceNum=15
+gp='MAL'
+#lapTimes=lapsData.df(year,1,con=dbConnect(RSQLite::SQLite(), './ergastdb13.sqlite'))
+#raceId=dbGetQuery(f1,'SELECT raceId FROM races WHERE year="2012" AND round="1"')
+lapTimes=lapsData.df(year,raceNum)
+
+lapTimes=battlemap_encoder(lapTimes)
+```
+
+
+```{r}
+results=resultsData.df(year,raceNum)
+results['code']=apply(results['driverId'],2,function(x) driverCodeMap(x))
+resultstmp=plyr::rename(results, c("code"="DRIVER", "carNum"="CARNO.","grid"="GRID", 
+                             "pos"="RANK", "status"="STATUS","laps"="LAPS"))
+resultstmp['FASTLAP']=with(resultstmp, paste0(fastlapnum,': ',fastlaptime,' (',fastlaprank,')'))
+resultstmp$FASTLAP[resultstmp$FASTLAP=='NA: NA (NA)']=''
+kable(subset(resultstmp,select=c('RANK','CARNO.','DRIVER','GRID', 'STATUS', 'LAPS', 'FASTLAP')),
+      format='markdown', row.names = FALSE)
+rm(resultstmp)
+```
+
+```{r, include=FALSE}
+#battlemapFull_byDriver(lapTimes,'HAM','2017 RUS - HAM Battlemap',c(-20,20))
+template=c(paste0("```{r battlemap_",year,"_",gp,"_{{code}}}"),
+           paste0("promoter(battlemapFull_byDriver(lapTimes,'{{code}}','", year, ' ', gp, " - {{code}} Battlemap',c(-20,20)))"),
+           '```')
+
+plist=intersect(c(unique(lapTimes['code'])$code),c(results['code']$code))
+#c('HAM','VET', 'VES','RIC','RAI','BOT')
+src = lapply(plist, function(code) knit_expand(text=c(template)))
+```
+
+`r knit(text = unlist(src))`
+
+```{r track_position_chart}
+promoter(track_position_chart(lapTimes,list(c("BOT","+"),c("RAI","*")))+theme_bw())
+```
+
+
+```{r raceHistory_chart}
+promoter(raceHistory_chart(lapTimes)+theme_bw())
+```
+
+```{r}
+#battlemapFull_byDriver(lapTimes,'HAM','2017 RUS - HAM Battlemap',c(-20,20))
+#track_position_concordance(lapTimes,code)
+template=c(paste0("```{r trackconcordance_",year,"_",gp,"_{{code}}}"),
+           "promoter(track_position_concordance(lapTimes,'{{code}}'))",
+           '```')
+src = lapply(plist, function(code) knit_expand(text=c(template)))
+
+```
+
+`r knit(text = unlist(src))`
+
+
+## Pit Stops
+
+```{r}
+pitstops=pitsData.df(year,raceNum )
+pitstops['code']=apply(pitstops['driverId'],2,function(x) driverCodeMap(x))
+```
+
+```{r pitStackedCumul}
+promoter(race.plot.pits.cumulativeTime(pitstops))
+```
+
+```{r pitDodged}
+promoter(race.plot.pits.dodged(pitstops))
+```
+
+```{r pitlollipop}
+pitLollipop(pitstops)
+```
+
+```{r pithistory}
+promoter(pitHistory(pitstops))
+```
+
+Data supplied in part from [*ergast.com*](http://ergast.com/mrd/).
