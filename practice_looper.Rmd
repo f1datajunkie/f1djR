@@ -1,0 +1,31 @@
+---
+title: "F1 Practice Report Generator"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+outdir="reports"
+dir.create(outdir, showWarnings = FALSE)
+
+```
+
+
+The following function will render a report for a practice session.
+
+```{r}
+renderDoc = function(psession) {
+  basefile="practice_template.Rmd"
+  rmarkdown::render(basefile, params = list(psession = psession),
+                    output_file =  paste0(outdir,'/practice_report_p', psession, '.md'),
+                    )
+}
+
+```
+
+```{r message=FALSE}
+#For each practice, generate the report.
+for (psession in c(1,2,3)) renderDoc(psession)
+```
+

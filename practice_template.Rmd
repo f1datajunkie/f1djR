@@ -1,0 +1,40 @@
+---
+title: "F1 2018 Australia, Free Practice 3"
+output:
+  md_document:
+    variant: gfm
+params:
+  psession: 1
+---
+
+```{r dummy , include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message=FALSE, echo=FALSE)
+#If we also set echo=FALSE, the code will be hidden in the knitted report
+library(knitr)
+stub='aus'
+
+psession = params$psession
+options(knitr.kable.NA = '')
+opts_chunk$set(root.dir = './reports')
+opts_chunk$set(fig.path = paste0("images/f1_2018_",stub,"_P",psession,"-"))
+```
+
+
+```{r init}
+library(f1djR)
+gp="Australia"
+qlaps= read.csv(paste0("~/Dropbox/various/",stub,"18_p",psession,"laptimes.csv"))
+qlapsb=rawLap_augment_quali(qlaps)
+```
+
+## Session Utilisation
+
+Activity in Free Practice `r psession` took place as follows:
+
+```{r utilisation,fig.width=10}
+#qlapsa=rawLap_augment_laptimes(qlaps)
+
+#qlapsb=qsessionOverride(qlapsb,0,1200,2600)
+qlapsb=quali_purplePatch(qlapsb)
+promoter(augmented_session_utilisation_chart(qlapsb,2,ordertype='ontrack',session=paste("F1",gp,"2018, Free Practice",psession)))
+```
