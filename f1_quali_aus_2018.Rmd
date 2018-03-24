@@ -1,0 +1,179 @@
+---
+title: "F1 2018 Australia, Qualifying"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE,message=FALSE)
+library(knitr)
+stub='aus'
+options(knitr.kable.NA = '')
+opts_chunk$set(fig.path = paste0("images/f1_2018_",stub,"-"))
+```
+
+
+
+```{r}
+library(f1djR)
+gp="Australia"
+qlaps= read.csv(paste0("~/Dropbox/various/",stub,"18_qualilaptimes.csv"))
+cutoff=c(15,10,2)
+```
+
+```{r}
+##Session classifications page
+#xx=pageGrabber('http://www.fia.com/events/fia-formula-one-world-championship/season-2017/session-classifications-19')
+qr=qualiResults.df(2018,1)
+
+qr=quali_progression_ergast_tx(qr)
+```
+
+```{r}
+#library(grid)
+#library(gridExtra)
+#promoter= function(g) {grid.arrange(g, nrow=1,
+             ##top="My title", 
+#             bottom = textGrob("To learn how to create this chart: f1datajunkie.com",
+#                               gp = gpar(fontface=3, fontsize=9),
+#                               hjust=1, x=1))}
+```
+```{r}
+#qr=quali_progression_ergast_tx(ergastifyQualiClass(fiaSessionClassQualifyingTidy(fiaTableGrabber(xx,4))))
+qrm=quali_progression_ergast_melt(qr)
+qrtmp=qr
+for (i in c(1,2,3)) {
+  qrtmp[[paste0('Q',i)]]=ifelse(is.na(qrtmp[[paste0('Q',i)]]),'',
+                                paste0(qrtmp[[paste0('Q',i)]],' (',qrtmp[[paste0('q',i,'pos')]],')'))
+}
+```
+
+Drivers progressed through the qualifying session as follows:
+```{r quali_slopegraph}
+promoter_ergastf1dj(core_qualifying_rank_slopegraph(qr,qrm,spacer=0.21,reverse=T))
+```
+
+
+```{r}
+ qsr=subset(qr, subset=(q1time<q2time))
+ qsr['driverName']=factor(qsr[['driverName']])
+```
+
+```{r results='asis'}
+cat(paste0(knit_child(text="Going from Q1 to Q2:\n",quiet=TRUE),'\n'))
+
+if (length(levels(qsr$driverName))==0) {
+  cat(paste0(knit_child(text='* all drivers improved on their best laptime from the previous session',quiet=TRUE),'\n'))
+}
+
+for (name in levels(qsr$driverName)) {
+  q1time=qsr[qsr['driverName']==name,][['q1time']]
+  q2time =qsr[qsr['driverName']==name,][['q2time']]
+  text='* `r name` failed to improve his time, recording `r q2time` compared to `r q1time` (`r q2time-q1time`s slower)'
+  t=paste0(knit_child(text=text,quiet=TRUE),'\n')
+  cat(text=t)
+}
+```
+
+
+```{r results='asis'}
+qsr=subset(qr, subset=(q2time<q3time))
+qsr['driverName']=factor(qsr[['driverName']])
+cat(paste0(knit_child(text="Going from Q2 to Q3:\n",quiet=TRUE),'\n'))
+
+if (length(levels(qsr$driverName))==0) {
+  cat(paste0(knit_child(text='* all drivers improved on their best laptime from the previous session',quiet=TRUE),'\n'))
+}
+
+for (name in levels(qsr$driverName)) {
+  text="* `r name` failed to improve his time, recording `r qsr[qsr['driverName']==name,][['q3time']]` compared to `r qsr[qsr['driverName']==name,][['q2time']]` (`r qsr[qsr['driverName']==name,][['q3time']]-qsr[qsr['driverName']==name,][['q2time']]`s slower)"
+  cat(paste0(knit_child(text=text,quiet=TRUE),'\n')) 
+}
+```
+
+Order change going from Q2 to Q3, along with laptime improvement (-ve is a better time in Q3)
+```{r}
+ txt='select qr1.driverName, (qr1.q3time-qr1.q2time) imp1,  qr2.driverName,(qr2.q3time-qr2.q2time) imp2  from qr as qr1 join qr as qr2 where qr1.driverName!=qr2.driverName and qr1.q2pos>qr2.q2pos and qr1.q3pos<qr2.q3pos'
+library(sqldf)
+ sqldf(txt)
+```
+
+```{r quali_time_slopegraph}
+promoter(core_qualifying_time_slopegraph(qr,qrm,spacer=0.21))
+```
+
+The official session results were recorded as follows:
+```{r}
+qrtmp=rename(qrtmp, c("driverName"="DRIVER", "qspos"="POS"))
+kable(subset(qrtmp,select=c('POS','DRIVER','Q1',	'Q2',	'Q3')), format='markdown',row.names = FALSE)
+rm(qrtmp)
+```
+
+
+## Session Utilisation
+
+Activity throughout the three qualification sessions took place as follows:
+
+```{r}
+#restart hack - for ITA 2017
+
+```
+
+```{r quali_utilisation,fig.width=10}
+#qlapsa=rawLap_augment_laptimes(qlaps)
+qlapsb=rawLap_augment_quali(qlaps)
+qlapsb=qsessionOverride(qlapsb,0,1200,2600)
+qlapsb=quali_purplePatch(qlapsb)
+promoter_ergastf1dj(augmented_session_utilisation_chart(qlapsb,2,session=paste("F1",gp,"2018, Qualifying")))
+```
+
+## Q1 
+
+```{r quali1_gridplot}
+intercept= c(mean(qr[!is.na(qr["q1pos"]) & (qr["q1pos"]==10 | qr["q1pos"]==11),"q1time"]))
+promoter_ergastf1dj(gridPlotTime(qr,"q1time",pos="q1pos", session="Q1",intercepts = intercept))
+```
+
+### Cut-off Time Evolution
+
+The cut-off time in Q1 evolved as follows:
+
+```{r quali1_cutoff}
+promoter_ergastf1dj(quali_session_times_plots(qlapsb[qlapsb['qsession']==1,],1,FALSE,FALSE,TRUE,cutoff)+theme_bw())
+```
+
+## Q2
+
+```{r quali2_gridplot}
+intercept= c(mean(qr[!is.na(qr["q2pos"]) & (qr["q2pos"]==10 | qr["q2pos"]==11),"q2time"]))
+promoter_ergastf1dj(gridPlotTime(qr,"q2time",pos="q2pos", session="Q2",intercepts = intercept))
+```
+
+### Cut-off Time Evolution
+
+The cut-off time in Q2 evolved as follows:
+
+```{r quali2_cutoff}
+promoter(quali_session_times_plots(qlapsb[qlapsb['qsession']==2,],2,FALSE,FALSE,TRUE,cutoff)+theme_bw())
+```
+
+## Q3
+
+
+```{r quali3_gridplot}
+intercept= c(mean(qr[!is.na(qr["q3pos"]) & (qr["q3pos"]==2 | qr["q3pos"]==3),"q3time"]))
+promoter_ergastf1dj(gridPlotTime(qr,"q3time",pos="q3pos", session="Q3",intercepts = intercept))
+```
+
+### Front Row Cut-off Time Evolution
+
+The cut-off time in Q3 evolved as follows:
+
+```{r quali3_cutoff}
+promoter_ergastf1dj(quali_session_times_plots(qlapsb[qlapsb['qsession']>2,],3,FALSE,FALSE,TRUE,cutoff)+theme_bw())
+```
+
+
+---
+ To learn how to wrangle F1 results and timing data to create charts like these, see [f1datajunkie.com](https://f1datajunkie.com) or [buy the *Wrangling F1 Data With R* book](https://leanpub.com/wranglingf1datawithr).
