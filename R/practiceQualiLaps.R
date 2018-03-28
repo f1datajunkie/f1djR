@@ -3,6 +3,10 @@
 #df <- read.csv("~/Dropbox/wranglingf1datawithr/src/df.csv")
 #df <- read.csv("~/Dropbox/wranglingf1datawithr/src/quali.csv")
 
+#https://stackoverflow.com/questions/25995257/r-shift-values-in-single-column-of-dataframe-up#comment40708706_25995330
+shift <- function(x, n){
+  c(tail(x, -n), rep(NA, n))
+}
 
 #A function to augment raw laptime from practice, race and qualifying sessions
 ## with derived data columns
@@ -22,6 +26,15 @@ rawLap_augment_laptimes = function(df){
   df=plyr::ddply(df,.(code),transform,stint=1+sum(pit)-cumsum(pit))
   df=arrange(df,code, lap)
   df=plyr::ddply(df,.(code,stint),transform,lapInStint=1:length(stint))
+
+  #Difference to car ahead by lap
+  df=arrange(df,lap,cuml)
+  df=plyr::ddply(df,.(lap),transform,difftoprev=c(0,diff(cuml)))
+  #Then cumulative sum on those to give time to leader
+  df=plyr::ddply(df,.(lap),transform,difftolead=cumsum(difftoprev))
+  #Diff to car behind is a shift
+  df$difftocarposbehind=shift(df$difftoprev, 1)
+
   df=arrange(df,code, lap)
   df=plyr::ddply(df,.(code),transform,driverbest=cummin(c(9999,rawtime[2:length(rawtime)])))
   #Need a patch in case there is only an entry time.. ie rawtime length==1
