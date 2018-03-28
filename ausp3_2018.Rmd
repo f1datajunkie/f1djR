@@ -1,0 +1,39 @@
+---
+title: "F1 2018 Australia, Free Practice 3"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE,message=FALSE)
+library(knitr)
+stub='aus'
+options(knitr.kable.NA = '')
+opts_chunk$set(fig.path = paste0("images/f1_2018_",stub,"-"))
+```
+
+
+```{r}
+library(f1djR)
+gp="Australia"
+qlaps= read.csv(paste0("~/Dropbox/various/",stub,"18_p3laptimes.csv"))
+cutoff=c(15,10,2)
+```
+
+## Session Utilisation
+
+Activity in Free Practice 1 took place as follows:
+
+```{r}
+#restart hack - for ITA 2017
+qlapsb=rawLap_augment_quali(qlaps)
+```
+
+```{r p3_utilisation,fig.width=10}
+#qlapsa=rawLap_augment_laptimes(qlaps)
+
+qlapsb=qsessionOverride(qlapsb,0,1200,2600)
+qlapsb=quali_purplePatch(qlapsb)
+promoter(augmented_session_utilisation_chart(qlapsb,2,ordertype='ontrack',session=paste("F1",gp,"2018, P3")))
+```

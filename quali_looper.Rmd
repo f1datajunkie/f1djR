@@ -1,0 +1,48 @@
+---
+title: "F1 Qualifying Report Generator"
+output: html_document
+---
+
+```{r init, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rootdir='./reports'
+outdir="quali"
+
+dir.create(rootdir, showWarnings = FALSE)
+dir.create(paste(rootdir, outdir, sep='/'), showWarnings = FALSE)
+
+```
+
+## Race meeting settings
+
+```{r}
+stub = 'aus'
+year = 2018
+racenum = 1
+gp = "Australia"
+laptimeFilePath=paste0("~/Dropbox/various/",stub,"18_qualilaptimes.csv")
+```
+
+## Report generation
+
+The following function will render a report for qualifying.
+
+```{r}
+renderDoc = function() {
+  basefile="quali_template.Rmd"
+  
+  rmarkdown::render(basefile,
+                    params = list(stub=stub, outdir = outdir, gp = gp,
+                                  year = year, racenum = racenum,
+                                  rootdir = rootdir,
+                                  laptimeFilePath = laptimeFilePath),
+                    output_file =  paste(rootdir,outdir,'quali_report.md', sep='/'),
+                    )
+}
+
+```
+
+```{r}
+renderDoc()
+```
