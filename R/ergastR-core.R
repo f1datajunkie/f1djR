@@ -525,6 +525,7 @@ resultsData.df=function(year,raceNum){
       fastlaprank=hack3(rrd[[i]])
     ))
   }
+  race.results.data$code = as.character(race.results.data$code)
   race.results.data$driverId=reorder(race.results.data$driverId, race.results.data$carNum)
   race.results.data
 }
