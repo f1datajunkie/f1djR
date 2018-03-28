@@ -1,0 +1,141 @@
+---
+title: "quali_team_faceoff_template"
+output: html_document
+---
+```{r}
+library(f1djR)
+#button=driverResults.df('2018')
+#magnussen=driverResults.df('2014','kevin_magnussen')
+qq=qualiResults.df(2018)
+```
+
+```{r}
+
+
+raceoff.df=function(d1,d2){
+  raceoff=merge(d1[,c('code','position','positionText','round')],
+                d2[,c('code','position','positionText','round')],
+                by='round')
+  raceoff$topd2=(raceoff$position.x>raceoff$position.y)
+
+  #The dNpos arguments identify the max and min positions
+  raceoff=ddply(raceoff, .(round),transform,
+                d1pos=max(position.x,position.y),
+                d2pos=min(position.x,position.y))
+  raceoff
+}
+
+#raceoff=raceoff.df(button,magnussen)
+
+driverPos=function(raceoff){
+  #Base chart
+  g=ggplot(raceoff,aes(x=round))
+  #Guides to highlight podium and points positions, and the back of the field
+  g=g+geom_hline(yintercept=3.5,colour='grey',linetype='dotted')
+  g=g+geom_hline(yintercept=10.5,colour='grey',linetype='dashed')
+  g=g+geom_hline(yintercept=0.5,colour='grey',linetype='dotted')
+  #We should really calculate the following intercept value based on size of the field
+  g=g+geom_hline(yintercept=22.5,colour='grey',linetype='dotted')
+  #Add the driver labels.
+  #Set the fontface according to whether the driver retired or not
+  g=g+geom_text(aes(y=position.x,
+                    #fontface=ifelse((positionText.x=='R'), 'italic' , 'plain'),
+                    label=code.x),size=3)
+  g=g+geom_text(aes(y=position.y,
+                    #fontface=ifelse((positionText.y=='R'), 'italic' , 'plain'),
+                    label=code.y),size=3)
+
+  g=g+xlab('Round')+ylab('Position')
+  #Add in the lines, colouring them by which driver was higher placed
+  g=g+geom_segment(aes(x=round,xend=round,y=d1pos-0.25,yend=d2pos+0.25,col=topd2))
+  #Tidy up the scales and grid lines
+  #The breaks range should really be calculated based on the size of the field
+  g=g+scale_x_continuous(breaks = 1:22,minor_breaks=NULL)
+  g=g+scale_y_reverse(breaks = c(1,5,10,15,20),minor_breaks=1:22)
+  #Tidy up the theme
+  g=g+guides(colour=FALSE)+theme_bw()
+  g
+}
+
+driverPosTeamQuali=function(raceoff){
+  #Base chart
+  g=ggplot(raceoff,aes(x=constructorId))
+  #Guides to highlight podium and points positions, and the back of the field
+  g=g+geom_hline(yintercept=3.5,colour='grey',linetype='dotted')
+  g=g+geom_hline(yintercept=10.5,colour='grey',linetype='dashed')
+  g=g+geom_hline(yintercept=0.5,colour='grey',linetype='dotted')
+  #We should really calculate the following intercept value based on size of the field
+  g=g+geom_hline(yintercept=15.5,colour='grey',linetype='dashed')
+  #Add the driver labels.
+  #Set the fontface according to whether the driver retired or not
+  g=g+geom_text(aes(y=position.x,
+                    #fontface=ifelse((positionText.x=='R'), 'italic' , 'plain'),
+                    label=code.x),size=3)
+  g=g+geom_text(aes(y=position.y,
+                    #fontface=ifelse((positionText.y=='R'), 'italic' , 'plain'),
+                    label=code.y),size=3)
+
+  g=g+xlab('Round')+ylab('Position')
+  #Add in the lines, colouring them by which driver was higher placed
+  g=g+geom_segment(aes(x=constructorId,xend=constructorId,y=d1pos-0.25,yend=d2pos+0.25,col=topd2))
+  #Tidy up the scales and grid lines
+  #The breaks range should really be calculated based on the size of the field
+  #g=g+scale_x_continuous(breaks = 1:22,minor_breaks=NULL)
+  g=g+scale_y_reverse(breaks = c(1,5,10,15,20),minor_breaks=1:22)
+  #Tidy up the theme
+  g=g+guides(colour=FALSE)+theme_bw()
+  #g =g+scale_x_discrete(limits=neworder)
+  g
+}
+
+raceoff2 = function(d1,d2){
+  raceoff=merge(d1[,c('code','position','round')],
+                d2[,c('code','position','round')],
+                by='round')
+  raceoff$topd2=(raceoff$position.x>raceoff$position.y)
+
+  #The dNpos arguments identify the max and min positions
+  raceoff=ddply(raceoff, .(round),transform,
+                d1pos=max(position.x,position.y),
+                d2pos=min(position.x,position.y))
+  raceoff
+}
+teamRaceOff = function(d1,d2){
+  raceoff=raceoff2(qq[qq$code==d1,],qq[qq$code==d2,])
+  driverPos(raceoff)
+}
+#driverPos(raceoff)
+```
+
+```{r echo=FALSE}
+qq=qualiResults.df(2018)
+#patch
+qq$constructorId <- as.character(qq$constructorId)
+
+#Need the character cast otherwise we lose the constructorId value to a factor number
+qq$constructorId = ifelse(qq$code %in% c('HAR','GAS'), 'toro_rosso', qq$constructorId )
+qq$constructorId <- as.factor(qq$constructorId)
+neworder = as.character(unique(qq$constructorId[order(qq$pos )]))
+#levels=rev(levels(sizes)
+qq$constructorId = factor(qq$constructorId,levels =neworder )
+
+zz=ddply(qq, .(constructorId,round),summarise,drivers =paste(code,collapse = "::"), positions=paste(position,collapse = "::"))
+#strsplit(zz$drivers,'::')
+tmpr=function(x,n){
+  s1=strsplit(x,'::')[[1]]
+  s1[n]
+}
+tmpri=function(x,n){
+  s1=strsplit(x,'::')[[1]]
+  as.integer(s1[n])
+}
+
+zz=ddply(zz,.(constructorId),mutate,code.x=tmpr(drivers,1),code.y=tmpr(drivers,2),
+         position.x=tmpri(positions,1),position.y=tmpri(positions,2))
+#levels(zz$d1)=levels(qq$code)
+#levels(zz$d2)=levels(qq$code)
+zz=ddply(zz, .(round,constructorId),transform,
+                d1pos=max(position.x,position.y),
+                d2pos=min(position.x,position.y))
+zz$topd2=(zz$position.x>zz$position.y)
+```
