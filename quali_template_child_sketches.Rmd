@@ -1,0 +1,10 @@
+Order change going from Q2 to Q3, along with laptime improvement (-ve is a better time in Q3)
+
+```{r}
+ txt='select qr1.driverName, (qr1.q3time-qr1.q2time) imp1,  qr2.driverName,(qr2.q3time-qr2.q2time) imp2  from qr as qr1 join qr as qr2 where qr1.driverName!=qr2.driverName and qr1.q2pos>qr2.q2pos and qr1.q3pos<qr2.q3pos'
+library(sqldf)
+#If we have RMySQL attached, an error is thrown if we don't set the sqldf driver
+#https://stackoverflow.com/questions/38416714/failed-to-connect-the-database-when-using-sqldf-in-r
+options(sqldf.driver = "SQLite")
+sqldf(txt)
+```

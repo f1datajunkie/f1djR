@@ -1,0 +1,50 @@
+
+Drivers progressed through the qualifying session as follows:
+
+```{r quali_slopegraph}
+promoter_ergastf1dj(core_qualifying_rank_slopegraph(qr,qrm,spacer=0.21,reverse=T))
+```
+
+
+```{r}
+ qsr=subset(qr, subset=(q1time<q2time))
+ qsr['driverName']=factor(qsr[['driverName']])
+```
+
+```{r results='asis'}
+cat(paste0(knit_child(text="Going from Q1 to Q2:\n",quiet=TRUE),'\n'))
+
+if (length(levels(qsr$driverName))==0) {
+  cat(paste0(knit_child(text='* all drivers improved on their best laptime from the previous session',quiet=TRUE),'\n'))
+}
+
+for (name in levels(qsr$driverName)) {
+  q1time=qsr[qsr['driverName']==name,][['q1time']]
+  q2time =qsr[qsr['driverName']==name,][['q2time']]
+  text='* `r name` failed to improve his time, recording `r q2time` compared to `r q1time` (`r q2time-q1time`s slower)'
+  t=paste0(knit_child(text=text,quiet=TRUE),'\n')
+  cat(text=t)
+}
+```
+
+
+```{r results='asis'}
+qsr=subset(qr, subset=(q2time<q3time))
+qsr['driverName']=factor(qsr[['driverName']])
+cat(paste0(knit_child(text="Going from Q2 to Q3:\n",quiet=TRUE),'\n'))
+
+if (length(levels(qsr$driverName))==0) {
+  cat(paste0(knit_child(text='* all drivers improved on their best laptime from the previous session',quiet=TRUE),'\n'))
+}
+
+for (name in levels(qsr$driverName)) {
+  text="* `r name` failed to improve his time, recording `r qsr[qsr['driverName']==name,][['q3time']]` compared to `r qsr[qsr['driverName']==name,][['q2time']]` (`r qsr[qsr['driverName']==name,][['q3time']]-qsr[qsr['driverName']==name,][['q2time']]`s slower)"
+  cat(paste0(knit_child(text=text,quiet=TRUE),'\n')) 
+}
+```
+
+
+
+```{r quali_time_slopegraph}
+promoter(core_qualifying_time_slopegraph(qr,qrm,spacer=0.21))
+```

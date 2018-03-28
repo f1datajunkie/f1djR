@@ -1,0 +1,12 @@
+## Session Utilisation
+
+Activity throughout the three qualification sessions took place as follows:
+
+```{r}
+#restart hack - for ITA 2017
+
+```
+
+```{r quali_utilisation,fig.width=10}
+promoter_ergastf1dj(augmented_session_utilisation_chart(qlapsb,2,session=paste("F1",gp,"2018, Qualifying")))
+```
