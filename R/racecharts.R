@@ -57,8 +57,7 @@ battlemap_encoder=function(lapTimes){
   #)
 
   #driverCode=function(name) unname(driverCodes[name])
-  lapTimes['code']=apply(lapTimes['driverId'],2,function(x) driverCodeMap(x))
-
+  lapTimes['code']=apply(lapTimes['driverId'],1,function(x) driverCodeErgast(x))
   #TO DO - need to add something to add a dummy label if we get a mismatch
 
   #Arrange the drivers in terms of increasing accumulated race time
