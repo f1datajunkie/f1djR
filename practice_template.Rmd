@@ -1,40 +1,63 @@
 ---
-title: "F1 2018 Australia, Free Practice 3"
+title: "F1 Free Practice Template"
 output:
   md_document:
     variant: gfm
 params:
   psession: 1
+  stub: 'generic'
+  outdir: 'practice'
+  rootdir: './reports'
+  year: 2018
+  laptimeFilePath: "~/Dropbox/various/aus18_p1laptimes.csv"
 ---
 
 ```{r dummy , include=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message=FALSE, echo=FALSE)
 #If we also set echo=FALSE, the code will be hidden in the knitted report
 library(knitr)
-stub='aus'
+
 
 psession = params$psession
+rootdir = params$rootdir
+outdir = params$outdir
+stub = params$stub
+year = params$year
+laptimeFilePath = params$laptimeFilePath
+
 options(knitr.kable.NA = '')
-opts_chunk$set(root.dir = './reports')
-opts_chunk$set(fig.path = paste0("images/f1_2018_",stub,"_P",psession,"-"))
+
+#https://rgriff23.github.io/2017/04/25/how-to-knit-for-mysite.html
+opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
+opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"_P",psession,"-"))
 ```
 
 
 ```{r init}
 library(f1djR)
 gp="Australia"
-qlaps= read.csv(paste0("~/Dropbox/various/",stub,"18_p",psession,"laptimes.csv"))
-qlapsb=rawLap_augment_quali(qlaps)
+plaps= read.csv(paste0(laptimeFilePath))
+plapsb=rawLap_augment_laptimes(plaps)
 ```
 
 ## Session Utilisation
 
 Activity in Free Practice `r psession` took place as follows:
 
+
 ```{r utilisation,fig.width=10}
 #qlapsa=rawLap_augment_laptimes(qlaps)
 
 #qlapsb=qsessionOverride(qlapsb,0,1200,2600)
-qlapsb=quali_purplePatch(qlapsb)
-promoter(augmented_session_utilisation_chart(qlapsb,2,ordertype='ontrack',session=paste("F1",gp,"2018, Free Practice",psession)))
+#qlapsb=quali_purplePatch(qlapsb)
+promoter(augmented_session_utilisation_chart(plapsb,2,ordertype='ontrack',session=paste("F1",gp,year,", Free Practice",psession)))
 ```
+
+
+
+
+
+
+---
+
+This website is unofficial and is not associated in any way with the Formula 1 companies. F1, FORMULA ONE, FORMULA 1, FIA FORMULA ONE WORLD CHAMPIONSHIP, GRAND PRIX and related marks are trade marks of Formula One Licensing B.V.
