@@ -1,5 +1,7 @@
+#Note that Verstappen changed code from VES to VER during 2017
+
 driverCodeMapCodes=c("hamilton"= "HAM", "vettel"= "VET", "rosberg"= "ROS", "ricciardo"= "RIC",
-              "kvyat"= "KVY", "max_verstappen"= "VES", "massa" = "MAS", "grosjean"= "GRO",
+              "kvyat"= "KVY", "max_verstappen"= "VER", "massa" = "MAS", "grosjean"= "GRO",
               "bottas"= "BOT", "ericsson"= "ERI", "raikkonen"= "RAI", "maldonado" = "MAL",
               "hulkenberg"= "HUL", "perez"= "PER", "sainz"= "SAI", "nasr"= "NAS",
               "button" = "BUT", "alonso"= "ALO", "merhi"= "MER", "stevens"="STE",
@@ -32,3 +34,4 @@ driverCodes=c("L. HAMILTON"= "HAM", "S. VETTEL"= "VET", "N. ROSBERG"= "ROS", "D.
               "Max VERSTAPPEN"='VER', "Sergey SIROTKIN"='SIR', "Lewis HAMILTON"='HAM',
               "Carlos SAINZ"='SAI', "Valtteri BOTTAS"='BOT' )
 driverCode=function(name) unname(driverCodes[name])
+driverCodeErgast=function(name) unname(driverCodeMapCodes[name])

@@ -9,36 +9,41 @@
 #TO DO - add an optional colour to show laps slower than previous lap as red
 #TO DO - prev lap should be prev flying lap (not inlap or outlap or 1st lap)
 rawLap_augment_laptimes = function(df){
-  df['code']=apply(df['name'],2,function(x) driverCode(x))
-
-  df=plyr::ddply(df,.(name),transform,cuml=cumsum(stime))
-  df['pit']=df['pit']=='True'
-  df=arrange(df,name, -lapNumber)
-  df=plyr::ddply(df,.(name),transform,stint=1+sum(pit)-cumsum(pit))
-  df=arrange(df,name, lapNumber)
-  df=plyr::ddply(df,.(name,stint),transform,lapInStint=1:length(stint))
-  df=arrange(df,name, lapNumber)
-  df=plyr::ddply(df,.(name),transform,driverbest=cummin(c(9999,stime[2:length(stime)])))
-  #Need a patch in case there is only an entry time.. ie stime length==1
+  #This is a fudge for TH scraped data legacy
+  if(!"code" %in% colnames(df)) {
+    if ("name" %in% colnames(df))
+      df['code']=apply(df['name'],2,function(x) driverCode(x))
+    else if ("driverId" %in% colnames(df))
+      df['code']=apply(df['driverId'],2,function(x) driverCodeErgast(x))
+  }
+  df=plyr::ddply(df,.(code),transform,cuml=cumsum(rawtime))
+  df['pit']= df['pit'] == c(TRUE,'True')
+  df=arrange(df,code, -lap)
+  df=plyr::ddply(df,.(code),transform,stint=1+sum(pit)-cumsum(pit))
+  df=arrange(df,code, lap)
+  df=plyr::ddply(df,.(code,stint),transform,lapInStint=1:length(stint))
+  df=arrange(df,code, lap)
+  df=plyr::ddply(df,.(code),transform,driverbest=cummin(c(9999,rawtime[2:length(rawtime)])))
+  #Need a patch in case there is only an entry time.. ie rawtime length==1
   #TO DO - another correction to make a singleton time a pit lap
   df=df[!(is.na(df$driverbest)), ]
   df=arrange(df,cuml)
   df['purple']=sapply(df['driverbest'],cummin)
-  df['colourx']=ifelse(df['stime']==df['purple'],
+  df['colourx']=ifelse(df['rawtime']==df['purple'],
                        'purple',
-                       ifelse(df['stime']==df['driverbest'],
+                       ifelse(df['rawtime']==df['driverbest'],
                               'green',
                               'black'))
-  df=arrange(df,name, lapNumber)
-  df= plyr::ddply(df,.(name),transform,outlap=c(FALSE, diff(pit)==-1))
-  df['outlap']= df['outlap'] | df['lapInStint']==1 |  (df['stime'] > 2.0 * min(df['purple']) & (!df['pit']) )
+  df=arrange(df,code, lap)
+  df= plyr::ddply(df,.(code),transform,outlap=c(FALSE, diff(pit)==-1))
+  df['outlap']= df['outlap'] | df['lapInStint']==1 |  (df['rawtime'] > 2.0 * min(df['purple']) & (!df['pit']) )
   df=plyr::ddply(df,
-           .(name),
+           .(code),
            transform,
            stint=cumsum(outlap),
            lapInStint=1:length(stint))
   df=plyr::ddply(df,
-           .(name, stint),
+           .(code, stint),
            transform,
            lapInStint=1:length(stint))
   df
@@ -48,15 +53,15 @@ plot_session_utilisation_chart = function (df,size=2,session=''){
   g = ggplot(df)
   #Layer showing in-laps (laps on which a driver pitted) and out-laps
   g = g + geom_point(data=df[df['outlap'] | df['pit'],],
-                     aes(x=cuml, y=name#, color=factor(colourx)
+                     aes(x=cuml, y=code#, color=factor(colourx)
                          ), pch=1)
   #Further annotation to explicitly identify pit laps (in-laps)
   g = g + geom_point(data=df[df['pit']==TRUE,],
-                     aes(x=cuml, y=name), pch='.')
+                     aes(x=cuml, y=code), pch='.')
   #Layer showing full laps with rounded laptimes and green/purple lap highlights
   g = g + geom_text(data=df[!df['outlap'] & !df['pit'],],
-                    aes(x=cuml, y=name,
-                        label=floor(stime*10)/10, color=factor(colourx)
+                    aes(x=cuml, y=code,
+                        label=floor(rawtime*10)/10, color=factor(colourx)
                         ),
                     size=size, angle=45)
   g = g + scale_colour_manual(values=c('darkgrey','darkgreen','purple'))
@@ -73,26 +78,26 @@ plot_session_utilisation_chart = function (df,size=2,session=''){
 ##qlapsb=rawLap_augment_laptimes(qlaps)
 ##plot_session_utilisation_chart_toggle_gap(qlapsb,2)
 plot_session_utilisation_chart_toggle_gap=function(df,size=2){
-   df=plyr::ddply(df,.(name,stint),transform,diff=c(0,diff(stime)))
+   df=plyr::ddply(df,.(code,stint),transform,diff=c(0,diff(rawtime)))
    df['coloury']=ifelse(df$colourx=='black',
                                 ifelse(df$diff>=0.0,'red','yellow'),
                                 df$colourx)
    g = ggplot(df)
    #Layer showing in-laps (laps on which a driver pitted) and out-laps
    g = g + geom_point(data=df[df['outlap'] | df['pit'],],
-                      aes(x=cuml, y=name, color=factor(colourx)), pch=1)
+                      aes(x=cuml, y=code, color=factor(colourx)), pch=1)
    #Further annotation to explicitly identify pit laps (in-laps)
    g = g + geom_point(data=df[df['pit']==TRUE,],
-                      aes(x=cuml, y=name),pch='.')
+                      aes(x=cuml, y=code),pch='.')
    #Layer showing start of stint laptimes and green/purple lap highlights
    g = g + geom_text(data=df[df['lapInStint']==2 & !df['pit'],],
-                     aes(x=cuml, y=name,
-                         label=stime,#floor(stime*10)/10,
+                     aes(x=cuml, y=code,
+                         label=rawtime,#floor(rawtime*10)/10,
                          color=factor(colourx)),
                      size=size, angle=45)
    #Layer showing stint laptime deltas and green/purple lap highlights
    g = g + geom_text(data=df[df['lapInStint']>2 & !df['pit'],],
-                     aes(x=cuml, y=name,
+                     aes(x=cuml, y=code,
                          label=round(diff,2),
                          color=factor(coloury)),
                      size=size, angle=45)
@@ -106,7 +111,7 @@ plot_session_utilisation_chart_toggle_gap=function(df,size=2){
 #Further laps are show as colour coded lap delta from second lap (first flying lap) in stint
 #TO DO? It might be interesting to also have a differ that shows the difference to the min purple to date?
 plot_session_utilisation_chart_stint_diff=function(df,size=2){
-  df=plyr::ddply(df,.(name,stint),mutate,sf=stime[2],sfd=sf-stime)
+  df=plyr::ddply(df,.(code,stint),mutate,sf=rawtime[2],sfd=sf-rawtime)
 
   #sfd is junk in rows 1 and 2 of a stint
   df['colourz']=ifelse(df$colourx=='black',
@@ -115,19 +120,19 @@ plot_session_utilisation_chart_stint_diff=function(df,size=2){
   g = ggplot(df)
   #Layer showing in-laps (laps on which a driver pitted) and out-laps
   g = g + geom_point(data=df[df['outlap'] | df['pit'],],
-                     aes(x=cuml, y=name), pch=1) # aes: color=factor(colourx),
+                     aes(x=cuml, y=code), pch=1) # aes: color=factor(colourx),
   #Further annotation to explicitly identify pit laps (in-laps)
   g = g + geom_point(data=df[df['pit']==TRUE,],
-                     aes(x=cuml, y=name),pch='.')
+                     aes(x=cuml, y=code),pch='.')
   #Layer showing start of stint laptimes and green/purple lap highlights
   g = g + geom_text(data=df[df['lapInStint']==2 & !df['pit'],],
-                    aes(x=cuml, y=name,
-                        label=stime,#floor(stime*10)/10,
+                    aes(x=cuml, y=code,
+                        label=rawtime,#floor(rawtime*10)/10,
                         color=factor(colourx)),
                     size=size, angle=45)
   #Layer showing stint laptime deltas and green/purple lap highlights
   g = g + geom_text(data=df[df['lapInStint']>2 & !df['pit'],],
-                    aes(x=cuml, y=name,
+                    aes(x=cuml, y=code,
                         label=-round(sfd,2),
                         color=factor(colourz)),
                     size=size, angle=45, fontface="italic")
@@ -138,13 +143,13 @@ plot_session_utilisation_chart_stint_diff=function(df,size=2){
 
 augmented_session_utilisation_chart=function(df,size=2,lapcount=TRUE,
                                              gap=TRUE,besttime=TRUE,
-                                             session='',
+                                             session='', neworder=NA,
                                              ordertype=''){
-  df=arrange(df,name,lapNumber)
+  df=arrange(df,code,lap)
   spurple=min(df['purple'])
 
   dfClass=plyr::ddply(df[df['driverbest']<9999,],
-                      .(name),
+                      .(code),
                       here(summarise),
                       driverbest=min(driverbest),
                       gap=min(driverbest)-spurple)
@@ -160,11 +165,11 @@ augmented_session_utilisation_chart=function(df,size=2,lapcount=TRUE,
 
   #dfClass
   g=plot_session_utilisation_chart(df,size)
-  #g=g+geom_text(data=dfClass,aes(x=-800,y=name,label=pos),size=size,fontface='bold')
+  #g=g+geom_text(data=dfClass,aes(x=-800,y=code,label=pos),size=size,fontface='bold')
 
   if (gap) {
     g=g+geom_text(data=dfClass,
-                  aes(x=-400,y=name,label=paste(round(gap,3)," (",round(diff,3),")",sep='')),
+                  aes(x=-400,y=code,label=paste(round(gap,3)," (",round(diff,3),")",sep='')),
                   size=size)
   }
 
@@ -175,49 +180,47 @@ augmented_session_utilisation_chart=function(df,size=2,lapcount=TRUE,
   if (session !='') txt=paste0(txt,' (',session,')')
   g=g+scale_x_continuous(label=sess_util_formatter)+ggtitle(txt)
 
-  dfn=count(df,"name")
-  dfClass = merge(dfClass, dfn, by = "name", all = TRUE)
+  dfn=count(df,"code")
+  dfClass = merge(dfClass, dfn, by = "code", all = TRUE)
   if (lapcount) {
-    g=g+geom_text(data=dfClass,aes(x=-900,y=name,label=paste('(',freq,')',sep='')),
+    g=g+geom_text(data=dfClass,aes(x=-900,y=code,label=paste('(',freq,')',sep='')),
                   size=size,fontface='bold')
   }
 
   if (besttime){
-    g=g+geom_text(data=dfClass,aes(x=-1250,y=name,label=driverbest),size=size,fontface='bold')
+    g=g+geom_text(data=dfClass,aes(x=-1250,y=code,label=driverbest),size=size,fontface='bold')
   }
 
-  if (ordertype=='') {
+  if (is.na(neworder)) {if (ordertype=='') {
 
-    #Order the chart by driver session position
-    #If there are extra levels in the names, clear them out
-    df$name=droplevels(df$name)
-    dfClass$name=droplevels(dfClass$name)
-    levels(df$name) = factor(dfClass$name, levels = levels(dfClass$name[order(dfClass$pos)]))
-    neworder = rev(levels(df$name))
+    #Order the chart by driver session fastlap position
+    #If there are extra levels in the codes, clear them out
+    #df$code=droplevels(df$code)
+    #dfClass$code=droplevels(dfClass$code)
+    #levels(df$code) = factor(dfClass$code, levels = levels(dfClass$code[order(dfClass$pos)]))
+
+   # neworder = rev(levels(df$code))
+    neworder = dfClass$code[order(dfClass$pos )]
   }
 
   if (ordertype=='lapcount'){
-    neworder = dfClass$name[order(dfClass$freq,-dfClass$driverbest )]
-  }
-
-  if (ordertype=='lapcount'){
-    neworder = dfClass$name[order(dfClass$freq,-dfClass$driverbest )]
+    neworder = dfClass$code[order(dfClass$freq,-dfClass$driverbest )]
   }
 
   if (ordertype=='besttime'){
 
     #Cope with 0 time
     dfClass$driverbest[is.na(dfClass$driverbest)] = 9999
-    neworder = dfClass$name[order(-dfClass$driverbest,dfClass$freq  )]
+    neworder = dfClass$code[order(-dfClass$driverbest,dfClass$freq  )]
     #Cope with 0 time
     dfClass$driverbest[dfClass$driverbest == 9999] = NA
   }
 
   if (ordertype=='ontrack'){
-    dfOnTrack = plyr::ddply(df, .(name), summarise, driverontrack=min(cuml))
+    dfOnTrack = plyr::ddply(df, .(code), summarise, driverontrack=min(cuml))
 
-    neworder = dfOnTrack$name[order(-dfOnTrack$driverontrack)]
-  }
+    neworder = dfOnTrack$code[order(-dfOnTrack$driverontrack)]
+  }}
 
   g = g+scale_y_discrete(limits=neworder) +xlab('Accumulated session time (s)') +ylab(NULL)
 
@@ -230,48 +233,48 @@ augmented_session_utilisation_chart=function(df,size=2,lapcount=TRUE,
 #source('streakiness.R')
 stintFinder=function(df){
   stints=data.frame()
-  for (name in levels(df$name)){
-    dft=df[df$name==name,]
+  for (code in levels(df$code)){
+    dft=df[df$code==code,]
     dft=streaks(dft$stint)
-    dft['name']=name
-    dft=dft[c('name','start','end','l')]
+    dft['code']=code
+    dft=dft[c('code','start','end','l')]
     stints=rbind(stints,dft)
   }
 
-  stints['name']=factor(stints$name)
-  plyr::ddply(stints,.(name),transform,stintNumber=1:length(l))
+  stints['code']=factor(stints$code)
+  plyr::ddply(stints,.(code),transform,stintNumber=1:length(l))
 }
 
 longrunFinder=function(stints,df,stintlen=8){
   longruns=merge(stints[abs(stints['l'])>=stintlen,],
-                 df,by.x=c('name','stintNumber'),
-                 by.y=c('name','stint'))
-  arrange(longruns,name,lapNumber)
+                 df,by.x=c('code','stintNumber'),
+                 by.y=c('code','stint'))
+  arrange(longruns,code,lap)
 }
 
 longrunsplot_min=function(longruns){
   g= ggplot(longruns[!longruns['outlap'] & !longruns['pit'],])
-  g=g+geom_line(aes(x=lapInStint, y=stime, group=stintNumber,
+  g=g+geom_line(aes(x=lapInStint, y=rawtime, group=stintNumber,
                     colour=factor(stintNumber)))
-  g+facet_wrap(~name)
+  g+facet_wrap(~code)
 }
 
 longrunsplot_model=function(longruns,
                             m='loess',
                             cutoffpc=1.07,
                             drivers=c('L. HAMILTON', 'K. RAIKKONEN','S. VETTEL' )){
-  lr=longruns[!longruns['outlap'] & !longruns['pit'] & longruns$name %in% drivers
-              & longruns['stime']<cutoffpc*min(longruns['purple']),]
+  lr=longruns[!longruns['outlap'] & !longruns['pit'] & longruns$code %in% drivers
+              & longruns['rawtime']<cutoffpc*min(longruns['purple']),]
   g= ggplot(lr,
-            aes(x=lapInStint, y=stime,colour=interaction(stintNumber,name)))
+            aes(x=lapInStint, y=rawtime,colour=interaction(stintNumber,code)))
   g+geom_smooth(method = m,
-                aes( group=interaction(stintNumber,name))) + geom_point(aes(shape=interaction(stintNumber,name)))+ scale_colour_brewer(palette="Set1")
+                aes( group=interaction(stintNumber,code))) + geom_point(aes(shape=interaction(stintNumber,code)))+ scale_colour_brewer(palette="Set1")
 }
 #st=stintFinder(esp_p2a)
 #longruns=longrunFinder(st,esp_p2a)
 #longrunsplot_min(longruns)
 #longrunsplot_model(longruns,'lm')
-#longrunsplot_model(longruns[longruns['stime']<96,],'lm')
+#longrunsplot_model(longruns[longruns['rawtime']<96,],'lm')
 
 
 #Try to identify gaps between qualifying sessions
@@ -294,16 +297,16 @@ qsessionOverride=function(df,t1start,t2start,t3start){
 
 #Colour laptimes according to purple/green within separate quali sessions
 quali_purplePatch=function(df){
-  df=arrange(df,name, lapNumber)
-  df=plyr::ddply(df,.(qsession,name),transform,driverqbest=if (length(stime)==1) 9999 else cummin(c(9999,stime[2:length(stime)])))
+  df=arrange(df,code, lap)
+  df=plyr::ddply(df,.(qsession,code),transform,driverqbest=if (length(rawtime)==1) 9999 else cummin(c(9999,rawtime[2:length(rawtime)])))
   df=arrange(df,cuml)
   df=plyr::ddply(df,.(qsession),transform,qpurple=cummin(driverqbest))
-  df['colourx']=ifelse(df['stime']==df['qpurple'],
+  df['colourx']=ifelse(df['rawtime']==df['qpurple'],
                        'purple',
-                       ifelse(df['stime']==df['driverqbest'] & !df['pit'] & !df['outlap'],
+                       ifelse(df['rawtime']==df['driverqbest'] & !df['pit'] & !df['outlap'],
                              'green',
                               'black'))
-  df=arrange(df,name, lapNumber)
+  df=arrange(df,code, lap)
   df
 }
 

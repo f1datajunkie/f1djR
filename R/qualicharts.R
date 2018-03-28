@@ -10,10 +10,10 @@ quali_session_times_plots=function(df,session,evolution=TRUE,purple=FALSE,cutoff
   sessionbest=plyr::ddply(df[!df['pit'] & !df['outlap'],],
               .(qsession),
               summarise,
-              sbest=min(stime),
+              sbest=min(rawtime),
               sb107=1.07*sbest)
   df=merge(df,sessionbest,by='qsession')
-  df=df[!df['outlap'] & !df['pit'] & df['stime']<=df['sb107'],]
+  df=df[!df['outlap'] & !df['pit'] & df['rawtime']<=df['sb107'],]
   g=ggplot(df)
   if (purple) {
     g=g+geom_line(data=df[df['colourx']=='purple',],aes(x=cuml,y=qpurple),colour='darkgrey')
@@ -28,8 +28,8 @@ quali_session_times_plots=function(df,session,evolution=TRUE,purple=FALSE,cutoff
 
     n=cutoffvals[session]
     for (r in 1:nrow(df)) {
-      #dfcc=ddply(df[1:r,],.(qsession,code),summarise,dbest=min(stime))
-      dfcc=plyr::ddply(df[1:r,],.(code),summarise,dbest=min(stime))
+      #dfcc=ddply(df[1:r,],.(qsession,code),summarise,dbest=min(rawtime))
+      dfcc=plyr::ddply(df[1:r,],.(code),summarise,dbest=min(rawtime))
       #session=df[r,]$qsession
       #dfcc=arrange(dfcc[dfcc['qsession']==session,],dbest)
       dfcc=arrange(dfcc,dbest)
@@ -54,20 +54,20 @@ quali_session_times_plots=function(df,session,evolution=TRUE,purple=FALSE,cutoff
 
   if (evolution){
     #WOULD IT BE HANDY TO SHOW IN BOLD EACH DRIVER'S BEST IN SESSION?
-    g=g+geom_text(#data=df[df['stime']!=df['driverqsbest'],],
-                  aes(x=cuml,y=stime,label=code,colour=factor(colourx)),
+    g=g+geom_text(#data=df[df['rawtime']!=df['driverqsbest'],],
+                  aes(x=cuml,y=rawtime,label=code,colour=factor(colourx)),
                   angle=45,size=3)
-    #g=g+geom_text(data=df[df['stime']==df['driverqsbest'],],
-    #              aes(x=cuml,y=stime,label=code,colour=factor(colourx)),
+    #g=g+geom_text(data=df[df['rawtime']==df['driverqsbest'],],
+    #              aes(x=cuml,y=rawtime,label=code,colour=factor(colourx)),
     #              angle=45,size=3,fontface='bold')
   } else {
     df['coloury']=ifelse(df['colourx']=='black','black',
-                                ifelse(df['stime']==df['qspurple'],'purple','green'))
-    g=g+geom_text(data=df[df['stime']!=df['driverqsbest'],],
-                  aes(x=cuml,y=stime,label=code,colour=factor('black')),
+                                ifelse(df['rawtime']==df['qspurple'],'purple','green'))
+    g=g+geom_text(data=df[df['rawtime']!=df['driverqsbest'],],
+                  aes(x=cuml,y=rawtime,label=code,colour=factor('black')),
                   angle=45,size=3)
-    g=g+geom_text(data=df[df['stime']==df['driverqsbest'],],
-                  aes(x=cuml,y=stime,label=code,colour=factor(coloury)),
+    g=g+geom_text(data=df[df['rawtime']==df['driverqsbest'],],
+                  aes(x=cuml,y=rawtime,label=code,colour=factor(coloury)),
                   angle=45,size=3)
   }
   #How about a colour if you miss the cut with best time?
@@ -77,8 +77,8 @@ quali_session_times_plots=function(df,session,evolution=TRUE,purple=FALSE,cutoff
   dfdd=plyr::ddply(df,.(qsession),summarise,cutoffdbest=min(dbest))
   #df=merge(df,dfdd,by='qsession')
   dfx=merge(dfx,dfdd,by='qsession')
-  g=g+geom_text(data=dfx[dfx['stime']==dfx['driverqsbest'] & dfx['driverqsbest']>dfx['cutoffdbest'],],
-                aes(x=cuml,y=stime,label=code,colour=factor('red')),
+  g=g+geom_text(data=dfx[dfx['rawtime']==dfx['driverqsbest'] & dfx['driverqsbest']>dfx['cutoffdbest'],],
+                aes(x=cuml,y=rawtime,label=code,colour=factor('red')),
                 angle=45,size=3)
   #line to show the cutoff
   g=g+geom_hline(data=dfdd,
