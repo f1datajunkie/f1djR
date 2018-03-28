@@ -36,6 +36,7 @@ ll=lapTimes
 ll=merge(ll,pitstops[,c('driverId','lap','pit', 'strduration', 'rawduration')],by=c('driverId','lap'),all.x=TRUE)
 
 ll$pit[is.na(ll$pit)] = F
+
 ll2=rawLap_augment_laptimes(ll)
 head(ll2)
 ```
@@ -88,6 +89,100 @@ g=g+theme_bw() + theme(panel.border = element_blank(), panel.grid.major = elemen
 panel.grid.minor = element_blank())+theme(axis.text.x = element_text(angle = 45))
 g
 ```
+
+
+## Variant
+
+Do a variant where the x is pos on lap and y label is leader label
+
+```{r lapheatmap_pos}
+f1_2018_aus_lapheatmap_pos = function(){
+  #can tweak to use aes_string? So then code or position on x
+  g=ggplot(ll2)+ geom_tile(aes(x=position, y=lap, fill = log(rawtime-min(rawtime))))
+  
+  #Add base lap delta from fastest in al times
+  g =g+scale_fill_gradient(low="bisque",high="orange")
+  
+  #Add green laps (driver improvement)
+  g = g+geom_tile(data=ll2[ll2$colourx=='green',], aes(x=position, y=lap),fill='green4')
+  
+  #Add pit laps
+  pitlaps = ll2[ll2$pit,]
+  #Need to simplify this to set colour by min test and ignore na
+  g = g+geom_tile(data=pitlaps, aes(x=position, y=lap), fill='black') +geom_text(data=pitlaps,aes(x=position, y=lap,label=strduration,col=rawduration!=min(rawduration, na.rm=T)), size=1)#+ geom_text(data=pitlaps[pitlaps$rawduration != min(pitlaps$rawduration,na.rm=T),], aes(x=code, y=lap,label=strduration), col='white',size=1) +
+  
+  #Add purple laps
+  g = g+geom_tile(data=ll2[ll2$colourx=='purple',], aes(x=position, y=lap),fill='purple') + geom_text(data=ll2[(ll2$colourx %in% c('purple', 'green')),],aes(x=position, y=lap,label=strtime),col='white',size=1)
+  
+  #Add failure
+  #nonfinishers =  results[(results$status!='Finished') & (substring(results$status, 1, nchar('+')) != '+'),]
+  colorset = c('TRUE'='white','FALSE'='yellow' )
+  #g = g+geom_tile(data=nonfinishers, aes(x=position, y=laps+1), fill='red') + geom_text(data=nonfinishers, aes(x=position, y=laps+1,label=status), col='white',size=1)+scale_color_manual(values=colorset)
+  
+  #g =g+scale_x_discrete(limits=neworder)
+  g=g+ guides(fill=FALSE, col=FALSE)+ylab(NULL)+xlab('Position')
+  g=g+theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),axis.ticks.y = element_blank(),axis.ticks.x = element_blank(),
+  panel.grid.minor = element_blank())
+  
+  
+  #Labels differ from other map
+  labels = ll2[ll2['position']==1,c('lap','code')]
+  labels$x=-0.3
+  g =g+geom_text(data=labels,aes(x=x,y=lap,label=code), size=1)
+  g
+}
+
+```
+
+
+Diff map by pos
+
+- the only difference between this and above are the scales
+
 ```{r}
-head(ll2)
+#ll2=arrange(ll2,lap,cuml)
+#ll2=plyr::ddply(ll2,.(lap),transform,difftoprev=c(0,diff(cuml)))
+#?diff to lead? as cuml of diff to prev
+#ll2=plyr::ddply(ll2,.(lap),transform,difftolead=cumsum(difftoprev))
+```
+
+```{r battlesearch}
+  g=ggplot(ll2[ll2$difftocarposbehind>0,])+ geom_tile(aes(x=position, y=lap, fill = log(difftocarposbehind)))
+  
+  #Add base lap delta from fastest in al times
+  g =g+scale_fill_gradient(low="red",high="white")
+ 
+ 
+  #g =g+scale_x_discrete(limits=neworder)
+  g=g+ guides( fill=FALSE, col=FALSE)+ylab(NULL)+xlab('Position')
+  g=g+theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),axis.ticks.y = element_blank(),axis.ticks.x = element_blank(),
+  panel.grid.minor = element_blank())
+  
+  g=g+geom_text(data=ll2[ll2$difftocarposbehind<1,],aes(x=position,y=lap), label='DRS?',col='white', size=1)
+  
+  #Labels differ from other map
+  labels = ll2[ll2['position']==1,c('lap','code')]
+  labels$x=-0.3
+  g =g+geom_text(data=labels,aes(x=x,y=lap,label=code), size=1)
+  g
+```
+
+Then do an analysis to see how each driver is threatened?
+
+```{r driverbattlesearch}
+
+ g=ggplot(ll2[ll2$difftocarposbehind>0,])+ geom_tile(aes(x=code, y=lap, fill = log(difftocarposbehind)))
+  
+  #Add base lap delta from fastest in al times
+  g =g+scale_fill_gradient(low="red",high="white")
+ 
+ 
+  g =g+scale_x_discrete(limits=neworder)
+  g=g+ guides(fill=FALSE,col=FALSE)+ylab(NULL)+xlab(NULL)
+  g=g+theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),axis.ticks.y = element_blank(),axis.ticks.x = element_blank(),
+  panel.grid.minor = element_blank())
+  
+  g=g+geom_text(data=ll2[(ll2$difftocarposbehind<1) & ll2$difftocarposbehind>0,],aes(x=code,y=lap), label='DRS?',col='white', size=1)
+  g=g+theme(axis.text.x = element_text(angle = 45))
+  g
 ```
