@@ -1,0 +1,10 @@
+---
+title: "TO DO"
+output: html_notebook
+---
+
+
+Need to cast code as factor - and check throughout?
+#This shows factors for code as factor??
+#results['code']$code
+(unique(lapTimes['code'])$code)
