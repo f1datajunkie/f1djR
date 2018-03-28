@@ -33,7 +33,7 @@ pitstops
 
 ```{r}
 ll=lapTimes
-ll=merge(ll,pitstops[,c('driverId','lap','pit')],by=c('driverId','lap'),all.x=TRUE)
+ll=merge(ll,pitstops[,c('driverId','lap','pit', 'strduration', 'rawduration')],by=c('driverId','lap'),all.x=TRUE)
 
 ll$pit[is.na(ll$pit)] = F
 ll2=rawLap_augment_laptimes(ll)
@@ -58,20 +58,35 @@ neworder
 augmented_session_utilisation_chart(ll2,2,ordertype='besttime',session=paste("F1",gp,year,", Race"), neworder=rev(neworder))
 ```
 
-```{r lap heatmap}
+```{r lapheatmap}
 library(ggplot2)
 
 g=ggplot(ll2)+ geom_tile(aes(x=code, y=lap, fill = log(rawtime-min(rawtime))))
 
+#Add base lap delta from fastest in al times
 g =g+scale_fill_gradient(low="bisque",high="orange")
 
+#Add green laps (driver improvement)
 g = g+geom_tile(data=ll2[ll2$colourx=='green',], aes(x=code, y=lap),fill='green4')
-g = g+geom_tile(data=ll2[ll2$pit,], aes(x=code, y=lap),fill='black')
-g = g+geom_tile(data=ll2[ll2$colourx=='purple',], aes(x=code, y=lap),fill='purple') + geom_text(data=ll2[((ll2$colourx %in% c('purple', 'green')) | ll2$pit),],aes(x=code, y=lap,label=strtime),col='white',size=1)
+
+#Add pit laps
+pitlaps = ll2[ll2$pit,]
+#Need to simplify this to set colour by min test and ignore na
+g = g+geom_tile(data=pitlaps, aes(x=code, y=lap), fill='black') +geom_text(data=pitlaps,aes(x=code, y=lap,label=strduration,col=rawduration!=min(rawduration, na.rm=T)), size=1)#+ geom_text(data=pitlaps[pitlaps$rawduration != min(pitlaps$rawduration,na.rm=T),], aes(x=code, y=lap,label=strduration), col='white',size=1) +
+
+#Add purple laps
+g = g+geom_tile(data=ll2[ll2$colourx=='purple',], aes(x=code, y=lap),fill='purple') + geom_text(data=ll2[(ll2$colourx %in% c('purple', 'green')),],aes(x=code, y=lap,label=strtime),col='white',size=1)
+
+#Add failure
+nonfinishers =  results[(results$status!='Finished') & (substring(results$status, 1, nchar('+')) != '+'),]
+colorset = c('TRUE'='white','FALSE'='yellow' )
+g = g+geom_tile(data=nonfinishers, aes(x=code, y=laps+1), fill='red') + geom_text(data=nonfinishers, aes(x=code, y=laps+1,label=status), col='white',size=1)+scale_color_manual(values=colorset)
+
 g =g+scale_x_discrete(limits=neworder)
-g=g+ guides(fill=FALSE)+ylab(NULL)+xlab(NULL)
-g+theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),axis.ticks.y = element_blank(),axis.ticks.x = element_blank(),
+g=g+ guides(fill=FALSE, col=FALSE)+ylab(NULL)+xlab(NULL)
+g=g+theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),axis.ticks.y = element_blank(),axis.ticks.x = element_blank(),
 panel.grid.minor = element_blank())+theme(axis.text.x = element_text(angle = 45))
+g
 ```
 ```{r}
 head(ll2)
