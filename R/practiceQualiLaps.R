@@ -17,7 +17,7 @@ rawLap_augment_laptimes = function(df){
       df['code']=apply(df['driverId'],2,function(x) driverCodeErgast(x))
   }
   df=plyr::ddply(df,.(code),transform,cuml=cumsum(rawtime))
-  df['pit']= df['pit'] == c(TRUE,'True')
+  df$pit= df$pit %in% c(TRUE,'True')
   df=arrange(df,code, -lap)
   df=plyr::ddply(df,.(code),transform,stint=1+sum(pit)-cumsum(pit))
   df=arrange(df,code, lap)
