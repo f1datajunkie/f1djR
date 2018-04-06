@@ -1,0 +1,193 @@
+---
+title: "F1 Race Template"
+output:
+  md_document:
+    variant: gfm
+params:
+  psession: 1
+  stub: 'generic'
+  outdir: 'practice'
+  rootdir: './reports'
+  year: 2018
+  laptimeFilePath: "~/Dropbox/various/aus18_p1laptimes.csv"
+---
+
+# Race Report
+
+F1 race report...
+
+```{r setup, include=FALSE,message=FALSE,warning=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE)
+opts_chunk$set(fig.path = "images/f1_2018_aus-")
+
+#This stops clash with MySQL connection
+options(sqldf.driver = "SQLite")
+
+
+library(f1djR)
+```
+
+```{r echo=FALSE}
+library(ggplot2)
+library(directlabels)
+library(ggrepel)
+library(ggthemes)
+
+library(grid)
+library(gridExtra)
+
+library(plyr)
+```
+
+```{r}
+
+year=2018
+raceNum=1
+gp='AUS'
+#lapTimes=lapsData.df(year,1,con=dbConnect(RSQLite::SQLite(), './ergastdb13.sqlite'))
+#raceId=dbGetQuery(f1,'SELECT raceId FROM races WHERE year="2012" AND round="1"')
+lapTimes=lapsData.df(year,raceNum)
+head(lapTimes)
+```
+
+```{r}
+lapTimes=battlemap_encoder(lapTimes)
+```
+
+```{r}
+results=resultsData.df(year,raceNum)
+if(!"code" %in% colnames(results)) {
+  results['code']=apply(results['driverId'],2,function(x) driverCodeMap(x))
+}
+resultstmp=plyr::rename(results, c("code"="DRIVER", "carNum"="CARNO.","grid"="GRID", 
+                             "pos"="RANK", "status"="STATUS","laps"="LAPS"))
+resultstmp['FASTLAP']=with(resultstmp, paste0(fastlapnum,': ',fastlaptime,' (',fastlaprank,')'))
+resultstmp$FASTLAP[resultstmp$FASTLAP=='NA: NA (NA)']=''
+kable(subset(resultstmp,select=c('RANK','CARNO.','DRIVER','GRID', 'STATUS', 'LAPS', 'FASTLAP')),
+      format='markdown', row.names = FALSE)
+rm(resultstmp)
+```
+
+```{r, include=FALSE}
+#battlemapFull_byDriver(lapTimes,'HAM','2017 RUS - HAM Battlemap',c(-20,20))
+template=c(paste0("```{r battlemap_",year,"_",gp,"_{{code}}}"),
+           paste0("promoter(battlemapFull_byDriver(lapTimes,'{{code}}','", year, ' ', gp, " - {{code}} Battlemap',c(-20,20)))"),
+           '```')
+
+#The list needs to be sorted in race finish order
+
+#This shows factors for code as factor??
+#results['code']$code),unique(lapTimes['code'])$code)
+plist=intersect(c(results$code),unique(lapTimes$code))
+#c('HAM','VET', 'VES','RIC','RAI','BOT')
+src = lapply(plist, function(code) knit_expand(text=c(template)))
+```
+
+`r knit(text = unlist(src))`
+
+```{r track_position_chart}
+promoter(track_position_chart(lapTimes,list(c("BOT","+"),c("RAI","*")))+theme_bw())
+```
+
+
+```{r raceHistory_chart}
+promoter(raceHistory_chart(lapTimes)+theme_bw())
+```
+
+```{r}
+#battlemapFull_byDriver(lapTimes,'HAM','2017 RUS - HAM Battlemap',c(-20,20))
+#track_position_concordance(lapTimes,code)
+template=c(paste0("```{r trackconcordance_",year,"_",gp,"_{{code}}}"),
+           "promoter(track_position_concordance(lapTimes,'{{code}}'))",
+           '```')
+src = lapply(plist, function(code) knit_expand(text=c(template)))
+
+```
+
+`r knit(text = unlist(src))`
+
+
+## Pit Stops
+
+```{r}
+pitstops=pitsData.df(year,raceNum )
+pitstops['code']=apply(pitstops['driverId'],2,function(x) driverCodeMap(x))
+```
+
+```{r pithistory}
+promoter(pitHistory(pitstops))
+```
+
+```{r pitlollipop}
+pitLollipop(pitstops)
+```
+
+
+```{r pitStackedCumul}
+promoter(race.plot.pits.cumulativeTime(pitstops))
+```
+
+```{r pitDodged}
+promoter(race.plot.pits.dodged(pitstops))
+```
+
+## Circuit Performance
+
+How well a driver does at a circuit
+
+```{r}
+#/Users/ajh59/Documents/code/github forks/ergast-f1-api
+#docker-compose up --build -d
+library(RMySQL)
+ergastdb=dbConnect(MySQL(),user='root',password='f1',host='127.0.0.1',port=3399,dbname='ergastdb')
+```
+
+```{r}
+q='SELECT driverRef, code, MAX(year) as until,SUM(11-position) s FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND position<=10 AND d.driverId=rs.driverId AND circuitref="albert_park" GROUP BY driverRef, code  DESC ORDER BY s DESC LIMIT 10'
+leaders = dbGetQuery(ergastdb, q)
+```
+
+
+
+```{r results='asis'}
+q='SELECT year, driverRef, code, position FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND position<=10 AND d.driverID=rs.driverId AND circuitref="albert_park" ORDER BY year'
+ #The dbGetQuery() function is provided by the DBI library
+res = dbGetQuery(ergastdb, q)
+res
+
+```
+
+```{r}
+res$pts = 11-res$position
+
+res
+```
+
+
+```{r}
+library(plyr)
+res = plyr::ddply(res, .(driverRef), transform, totPts=cumsum(pts)  )
+```
+
+
+
+
+```{r driver_circuit_performance}
+
+g=ggplot(data=res[res$code %in% leaders$code,], aes(x=year, y=totPts))+ geom_step(aes(col=code))
+g=g+geom_point(data=res[(res$position <=3) & (res$code %in% leaders$code),],aes( size=factor(position),shape=factor(position),col=code)) + scale_size_manual(values=c(2,1.2,0.8)) + scale_shape_manual(values=c(2,6,1))
+
+
+
+g=g+ geom_line(data=res[!(res$code %in% leaders$code),], aes(group=driverRef),col='grey')
+
+#Label the lines
+g=g+geom_label_repel(data=leaders,aes(x=until, y=s,label = code), na.rm = TRUE, arrow = arrow(length = unit(0.01, 'npc')), nudge_y =3, nudge_x =2, segment.size = 0.2,size=2)
+
+g=g + guides(color=FALSE)+xlim(1993,2025)+ylim(0,110)+theme_bw()+ggtitle(paste('F1 Australia - Albert Park - Driver Performance,',min(res$year),'to',max(res$year)))
+g=g+annotate("rect", xmin = 1994, xmax = 2006, ymin = 75, ymax = 110,
+  alpha = 1, fill='lightblue')
+g = g+ annotate("text", x = 2000, y = 95, label = "10 points for 1st\ndown to 1 point for 10th")+ylab('Total "Points"')+xlab(NULL)
+g + guides(size=FALSE, shape=FALSE)
+```
