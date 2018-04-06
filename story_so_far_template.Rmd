@@ -1,0 +1,541 @@
+---
+title: "F1 Story So Far Template"
+output:
+  md_document:
+    variant: gfm
+params:
+  round: 2
+  stub: 'generic'
+  outdir: 'storysofar'
+  rootdir: './reports'
+  year: 2018
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(f1djR)
+library(toOrdinal)
+library(plyr)
+
+round=params$round
+year=params$year
+
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+```
+
+## The Story So Far
+
+Coming into the `r toOrdinal(round)` race of `r year`, the championship points race is as follows:
+
+```{r echo = FALSE}
+library(RMySQL)
+ergastdb=dbConnect(MySQL(),user='root',password='f1',host='127.0.0.1',port=3399,dbname='ergastdb')
+```
+
+### Drivers' Championship - Standings
+```{r echo = FALSE}
+q=paste0('SELECT position AS Position, d.code AS Driver, ds.points AS Points FROM driverStandings ds JOIN races r JOIN drivers d WHERE ds.raceId=r.raceId AND d.driverId=ds.driverId AND year=', year, ' AND round=', round-1, ' ORDER BY position ASC')
+df_championship_at_round = dbGetQuery(ergastdb, q)
+kable(df_championship_at_round, format='markdown',row.names = FALSE)
+```
+
+### Constructors' Championship - Standings
+```{r}
+q=paste0('SELECT position AS Position, c.name AS Constructor, cs.points AS Points FROM constructorStandings cs JOIN races r JOIN constructors c WHERE cs.raceId=r.raceId AND c.constructorId=cs.constructorId AND year=', year, ' AND round=', round-1, ' ORDER BY position ASC')
+df_const_championship_at_round = dbGetQuery(ergastdb, q)
+kable(df_const_championship_at_round, format='markdown',row.names = FALSE)
+```
+
+
+```{r}
+q=paste0('SELECT d.code, round, position, ds.points FROM driverStandings ds JOIN races r JOIN drivers d WHERE ds.raceId=r.raceId AND d.driverId=ds.driverId AND year=',year)
+df_championship_by_round = dbGetQuery(ergastdb, q)
+#df_championship_by_round
+```
+
+
+
+```{r}
+library(ggplot2)
+library(directlabels)
+championship_race_charter=function(g) {
+  #Generate a line chart
+  g = g + geom_line()
+  #Remove axis labels and colour legend
+  g = g + ylab(NULL) + xlab(NULL) + guides(color=FALSE)
+  #Add a title
+  g = g + ggtitle("F1 Drivers' Championship Race, 2018")
+  #Add right hand side padding to the chart so the labels don't overflow
+  g + scale_x_continuous(limits=c(1,22), breaks=c(5,10,15))
+}
+```
+
+
+
+```{r pointsRaceNonzero, message=FALSE,fig.cap="Cumulative points scored at the end of each round in the 2014 Drivers' Championship for drivers scoring at least 10 points by round 17"}
+if (FALSE) {
+  df.tenUp=df[df$round==(round-1) & df$points>=10,]$code
+
+  #All the other elements of the chart definition are the same
+  g=ggplot(df[df$code %in% df.tenUp,],aes(x=round,y=points,colour=code))
+  g= championship_race_charter(g) 
+  direct.label(g,list('last.bumpup',cex=0.7,dl.trans(x=x+0.2)))
+}
+```
+
+
+```{r pointsRace10th,fig.cap="",message=FALSE}
+if (FALSE){
+  #This highlights a battle
+  
+  #Generate a guide that is the mean points value of 10th and 11th positions
+  dfx=ddply(df[df['position']==10 | df['position']==11,],
+            .(round), summarize, points=mean(points))
+  #Set the driverId of this line to an empty string
+  dfx$code=''
+  
+  #Identify the drivers fighting for 10th at the end of round 10
+  #Include other drivers contending this position earlier in the season
+  #Ideally, we would automatically identify the positions around this cluster
+  df.contending = df[df$round==10 & df$pos>=9 & df$pos<=12,'driverId']
+  #The following filter identifies drivers fighting for 10th after 17
+  ##df.contending =df[df$round==17 & df$pos>=10 & df$pos<=12,'driverId']
+  df.battle=df[df$driverId %in% df.contending,]
+  
+  #Base chart
+  g=ggplot(df.battle,aes(x=round,y=points,colour=code))
+  g=championship_race_charter(g)
+  g=direct.label(g,list('last.bumpup',cex=0.7,dl.trans(x=x+0.2)))
+  #Add in the guide line
+  g = g + geom_line(data=dfx, aes(x=round, y=points),
+                    col='black', linetype="dashed")
+  g
+}
+```
+
+
+
+```{r champRaceStandings,fig.cap="The championship race in terms of standings"}
+#The lap chart style chart - plotting position rather than points
+if (round>2){
+  g = ggplot(df, aes(x=round, y=position,group=code))
+  g = championship_race_charter(g)
+  #If we know the size of the labels, we can easily fashion our own placement
+  g = g + geom_text(data=df[df['round']==max(df['round']),],
+              aes(x=round+0.9,label=code),size=3, vjust=-0.4)
+  g = g+theme_bw()
+  g
+}
+```
+
+
+
+```{r champRaceStandingsTotPoints,fig.cap="Annotating the championship standings chart with championship points at each round, coloured by points earned per race"}
+if (round>2){
+  #Sort by ascending round
+  df = arrange(df, round)
+  #Derive how many points each driver scored in each race
+  df = ddply(df, .(code), transform, racepoints=diff(c(0,points)))
+
+  g = g + geom_text(data=df, aes(label=points, col=racepoints), vjust=-0.4, size=3)
+  #Colour scheme for the points scored in each race
+  g + scale_color_continuous(high='red')
+}
+```
+
+```{r}
+q=paste0('SELECT code FROM drivers d JOIN races r JOIN results rs WHERE d.driverId=rs.driverId AND r.raceId=rs.raceId AND year=',year)
+driversThisYear= as.list(dbGetQuery(ergastdb, q))$code
+driversThisYear_str = paste("'",driversThisYear,"'", collapse=',', sep='')
+```
+
+```{r}
+q=paste0('SELECT c.name FROM constructors c JOIN races r JOIN results rs WHERE c.constructorId=rs.constructorId AND r.raceId=rs.raceId AND year=',year)
+teamsThisYear= as.list(dbGetQuery(ergastdb, q))$name
+teamsThisYear_str = paste("'",teamsThisYear,"'", collapse=',', sep='')
+```
+
+```{r}
+#driverteamsthisyear
+q_driverteamsthisyear=paste0('SELECT c.name name, d.code code FROM constructors c JOIN races r JOIN results rs JOIN drivers d WHERE c.constructorId=rs.constructorId AND r.raceId=rs.raceId and d.driverId=rs.driverId AND r.year=',year)
+#dbGetQuery(ergastdb, q_driverteamsthisyear)
+```
+
+### Races to Date
+
+```{r results='asis'}
+#races to date modulo 25
+q=paste0('SELECT d.code, COUNT(code)+1 AS races FROM drivers d JOIN results rs WHERE d.driverId=rs.driverId AND code IN (',driversThisYear_str,') GROUP BY code HAVING races>1 AND races % 25 = 0')
+raceStartsThisTime  = dbGetQuery(ergastdb, q)
+
+if (nrow(raceStartsThisTime)>0) {
+  cat('This will be:\n')
+  for (row in 1:nrow(raceStartsThisTime)) {
+    text = " * `r raceStartsThisTime[row, 'code']`'s `r toOrdinal(raceStartsThisTime[row, 'races'])` grand prix"
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+
+}
+```
+
+
+### Upcoming Race Trivia...
+
+
+```{r results='asis'}
+
+#These currently rely on db being current up to end of previous race
+#need to add: AND (year<',year,' OR (year=',year,' AND round<',round,'))
+
+upto=paste0(' AND (year<',year,' OR (year=',year,' AND round<',round,')) ')
+
+## STARTS
+
+#starts for a team
+q=paste0('SELECT d.code, COUNT(code) AS startsforteam, c.name AS name FROM drivers d JOIN races r JOIN results rs JOIN constructors c WHERE c.constructorId=rs.constructorId AND d.driverId=rs.driverId AND r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') ',upto,' GROUP BY d.code, c.name HAVING (startsforteam+1) % 50 = 0')
+startsTeammod50=dbGetQuery(ergastdb, q)
+
+#looking for poles to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS poles FROM drivers d JOIN qualifying q JOIN races r WHERE r.raceId=q.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=q.driverId AND q.position=1',upto,' GROUP BY code HAVING poles>1 AND (poles+1) % 5 = 0')
+lookingpolesmod5=dbGetQuery(ergastdb, q)
+
+#looking for front row starts to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS frontRows FROM drivers d JOIN qualifying q JOIN races r WHERE r.raceId=q.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=q.driverId AND q.position IN (1,2) ',upto,' GROUP BY code HAVING frontRows>1 AND (frontRows+1) % 5 = 0')
+frontrowmod5=dbGetQuery(ergastdb, q)
+
+#looking for podiums to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS podiums FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND  d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position IN (1,2,3) ',upto,' GROUP BY code HAVING podiums>1 AND (podiums+1) % 5 = 0')
+lookingpodiumsmod5=dbGetQuery(ergastdb, q)
+
+#looking for wins to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY code HAVING wins>1 AND (wins+1) % 5 = 0')
+lookingwinsmod5=dbGetQuery(ergastdb, q)
+
+#Looking for wins from pole
+q=paste0('SELECT d.code, COUNT(*) AS winsFromPole FROM drivers d JOIN results rs JOIN races r JOIN qualifying q WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND q.driverId=rs.driverId AND q.raceId=rs.raceId AND q.position=1 AND rs.position=1 AND d.code IN (',driversThisYear_str,') ',upto,' GROUP BY d.code HAVING winsFromPole>1 AND (winsFromPole+1) % 10 = 0 ORDER BY winsFromPole DESC')
+lookingwinspole10=dbGetQuery(ergastdb, q)
+
+#wins for a teams
+q=paste0('SELECT d.code, COUNT(*) AS winsfordriverteam, c.name AS name FROM drivers d JOIN races r JOIN results rs JOIN constructors c JOIN (',q_driverteamsthisyear,') dt WHERE c.constructorId=rs.constructorId AND d.driverId=rs.driverId AND r.raceId=rs.raceId AND rs.position=1 AND dt.code=d.code AND dt.name=c.name AND d.code IN (',driversThisYear_str,') ',upto,' GROUP BY d.code, c.name HAVING (winsfordriverteam+1) % 10 = 0')
+lookingWinsDriverTeammod10=dbGetQuery(ergastdb, q)
+
+if ((nrow(lookingpolesmod5) + nrow(lookingpolesmod5) + nrow(lookingpodiumsmod5) + nrow(lookingwinsmod5) +nrow(lookingwinspole10) + nrow(startsTeammod50) +nrow(lookingWinsDriverTeammod10))>0) {
+  cat("Coming in to the race:\n")
+}
+
+
+if (nrow(startsTeammod50)>0) {
+  for (row in 1:nrow(startsTeammod50)) {
+    text = '- `r startsTeammod50[row, "code"]` is looking for their `r toOrdinal(startsTeammod50[row, "startsforteam"]+1)` start for `r startsTeammod50[row, "name"]`'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+if (nrow(lookingpolesmod5)>0) {
+  for (row in 1:nrow(lookingpolesmod5)) {
+    text = '- `r lookingpolesmod5[row, "code"]` is looking for their `r toOrdinal(lookingpolesmod5[row, "poles"]+1)` ever pole position'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+
+if (nrow(frontrowmod5)>0) {
+  for (row in 1:nrow(frontrowmod5)) {
+    text = '- `r frontrowmod5[row, "code"]` is looking for their `r toOrdinal(frontrowmod5[row, "frontRows"]+1)` ever front row start'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+
+if (nrow(lookingpodiumsmod5)>0) {
+  for (row in 1:nrow(lookingpodiumsmod5)) {
+    text = '- `r lookingpodiumsmod5[row, "code"]` is looking for their `r toOrdinal(lookingpodiumsmod5[row, "podiums"]+1)` ever podium finish'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+
+if (nrow(lookingwinsmod5)>0) {
+  for (row in 1:nrow(lookingwinsmod5)) {
+    text = '- `r lookingwinsmod5[row, "code"]` is looking for their `r toOrdinal(lookingwinsmod5[row, "wins"]+1)` ever race win'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+lookingWinsDriverTeammod10
+if (nrow(lookingWinsDriverTeammod10)>0) {
+  for (row in 1:nrow(lookingWinsDriverTeammod10)) {
+    text = '- `r lookingWinsDriverTeammod10[row, "code"]` is looking for their `r toOrdinal(lookingWinsDriverTeammod10[row, "winsfordriverteam"]+1)` ever win for `r lookingWinsDriverTeammod10[row,"name"]`'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+if (nrow(lookingwinspole10)>0) {
+  for (row in 1:nrow(lookingwinspole10)) {
+    text = '- `r lookingwinspole10[row, "code"]` is looking for their `r toOrdinal(lookingwinspole10[row, "winsFromPole"]+1)` ever win from pole'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+#TO DO
+#consecutive finishes in points, on podium, in lead, pole, this season, this team, ever
+```
+
+```{r}
+# TO DO
+#Most wins by nationality
+#wins by current drivers
+q=paste0('SELECT d.driverRef, nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality')
+#wins by nationality
+q=paste0('SELECT d.driverRef, d.nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality')
+q=paste0('SELECT curr.driverRef AS Current, ever.driverRef AS AllTime,curr.nationality, ever.wins FROM (SELECT d.driverRef, nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality) curr, (SELECT d.driverRef, d.nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality) ever WHERE curr.nationality=ever.nationality and curr.wins=ever.wins and curr.driverRef!= ever.driverRef' )
+
+#dbGetQuery(ergastdb, q)
+```
+
+```{r}
+# TO DO
+#points scoring streak
+#pole streak
+#podium streak
+#front row streak
+#winning streak
+
+#celebrations
+#eg if there is a 200 starts driver, what other drivers have had 200 starts (do a check on 0, <=5, <=10, <20; Nth driver to achieve it )
+```
+
+```{r}
+## TO DO
+#record - most wins from pole ever 
+# - we don't have qualifying results far enough back in ergast db for this
+q=paste0('SELECT d.driverRef, COUNT(*) AS winsFromPole FROM drivers d JOIN results rs JOIN races r JOIN qualifying q WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND q.driverId=rs.driverId AND  q.raceId=rs.raceId AND q.position=1 AND rs.position=1 ',upto,' GROUP BY d.driverRef ORDER BY winsFromPole DESC')
+#dbGetQuery(ergastdb, q)
+```
+
+### Circuit Performance
+
+How well do drivers and constructors perform at the circuit?
+
+The *Driver Performance Chart* and *Constructor Performance Chart* show how drivers and constructors fare based on points scored at the circuit. (Note that points schemes may change over the reporting period.)
+
+```{r}
+q=paste0('SELECT circuitRef, c.name AS circuit, r.name as race, location, country FROM races r JOIN circuits c WHERE r.circuitId=c.circuitId AND year=',year,' AND round=',round)
+cct = as.list(dbGetQuery(ergastdb, q))
+```
+
+
+```{r}
+library(plyr)
+library(ggplot2)
+library(directlabels)
+library(ggrepel)
+library(ggthemes)
+library(reshape2)
+
+
+champChartTheme=function(g){
+  g = g + theme_minimal(base_family="Arial Narrow")
+  #g = g + theme(panel.grid.major.y=element_blank())
+  g = g + theme(panel.grid.minor=element_blank())
+  g = g + theme(axis.line.y=element_line(color="#2b2b2b", size=0.15))
+  g = g + theme(axis.text.y=element_text(margin=margin(r=0, l=0)))
+  g = g + theme(plot.margin=unit(rep(30, 4), "pt"))
+  g = g + theme(plot.title=element_text(face="bold"))
+  g = g + theme(plot.subtitle=element_text(margin=margin(b=10)))
+  g = g + theme(plot.caption=element_text(size=8, margin=margin(t=10)))
+  g
+}
+
+champ_chart = function(res,leaders, typ, ylabel='Championship Points'){
+  g=ggplot(data=res[res$code %in% leaders$code,], aes(x=year, y=totPts))+ geom_line(aes(col=code))
+  g=g+geom_point(data=res[(res$position <=3) & (res$code %in% leaders$code),],aes( size=factor(position),shape=factor(position),col=code)) + scale_size_manual(values=c(2,1.2,1.0)) + scale_shape_manual(values=c(2,6,1))
+  
+  g=g+ geom_line(data=res[!(res$code %in% leaders$code),], aes(group=code),col='grey')
+  
+  #Label the lines
+  g=g+geom_label_repel(data=leaders,aes(x=until, y=s,label = code, col=code), na.rm = TRUE, arrow = arrow(length = unit(0.01, 'npc')), nudge_y =3, nudge_x =2, segment.size = 0.2,size=2)
+  
+  g=g + guides(color=FALSE)+ylim(0,round_any(max(res$totPts)+10,10))#+theme_bw()
+  g=g+xlim(min(res$year),max(res$year)+5)
+  g = g+ylab(ylabel)+xlab(NULL)+scale_y_continuous(breaks=seq(0,round_any(max(res$totPts)+10,10),10))
+  g=g + guides(size=FALSE, shape=FALSE)
+  g=g+labs(x=NULL,
+           title=paste0('F1 ', cct$race, ' - ',typ,', ', min(res$year), ' to ', max(res$year)),
+           subtitle = paste0(cct$circuit,', ',cct$location,', ',cct$country),
+           caption="Data from Ergast database, ergast.com/mrd")
+  champChartTheme(g)
+}
+```
+
+
+
+```{r driver_circuit_performance}
+
+q=paste0('SELECT code, MAX(year) as until, SUM(points) s FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND  d.driverId=rs.driverId AND circuitref="' ,cct$circuitRef,'" GROUP BY code DESC ORDER BY s DESC LIMIT 10')
+leaders = dbGetQuery(ergastdb, q)
+
+q=paste0('SELECT year, code, position, points FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND circuitref="',cct$circuitRef,'" ORDER BY year')
+ #The dbGetQuery() function is provided by the DBI library
+res = dbGetQuery(ergastdb, q)
+
+res = ddply(res, .(code), transform, totPts=cumsum(points)  )
+
+champ_chart(res,leaders, 'Driver Performance')
+```
+
+Individual winners at this circuit:
+
+```{r}
+q=paste0('SELECT code AS Driver, COUNT(*) AS Wins FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position=1 AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code, code DESC ORDER BY Wins DESC')
+winners = dbGetQuery(ergastdb, q)
+kable(winners, format='markdown',row.names = FALSE)
+```
+
+
+Podiums at this circuit:
+
+```{r}
+q=paste0('SELECT code AS Driver, COUNT(*) AS Podiums FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position IN (1,2,3) AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code, code DESC ORDER BY Podiums DESC')
+winners = dbGetQuery(ergastdb, q)
+kable(winners, format='markdown',row.names = FALSE)
+```
+
+```{r team_circuit_performance}
+
+q=paste0('SELECT cn.name AS code, MAX(year) as until, SUM(points) s FROM races r JOIN circuits c JOIN results rs JOIN constructors cn WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND  cn.constructorId=rs.constructorId AND circuitref="',cct$circuitRef,'" GROUP BY cn.constructorId DESC ORDER BY s DESC LIMIT 5')
+leaders = dbGetQuery(ergastdb, q)
+
+q=paste0('SELECT year, cn.name AS code, position, points FROM races r JOIN circuits c JOIN results rs JOIN constructors cn WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND cn.constructorId=rs.constructorId AND circuitref="',cct$circuitRef,'" ORDER BY year')
+res = dbGetQuery(ergastdb, q)
+
+
+res = ddply(res, .(code), transform, totPts=cumsum(points)  )
+champ_chart(res,leaders, 'Constructor Performance')
+```
+
+```{r}
+# TO DO
+#at circuit:
+# pole sitters who win (conversion rate: pole-> win)
+# pole sitters who made podium  (conversion rate: pole-> podium)
+```
+
+### Circuit Competitive Supertimes
+
+*Supertimes* are often provided as a season wide performance metric for comparing performances over a season. At the manufacturer level, they are typically calculated for each manufacturer as the average of their fastest single lap recorded by the team at each race weekend expressed as a percentage of the fastest single lap overall.
+
+We can also derive a reduced *competitive supertime* by basing the calculation on best laptime recorded across the qualifying and race sessions, omitting laptimes recorded in the practice sessions.
+
+We can draw on the notion of supertimes to derive two simple measures for comparing team performances based on laptime:
+
+- evolution of manufacturer competitive supertime for a circuit over the years;
+- evolution of manufacturer competitive supertime for each circuit over the course of a season.
+
+We can also produce driver performance metrics based on the competitive supertime of each driver.
+
+
+```{r}
+q=paste0('SELECT q1, q2, q3, fastestLapTime, cn.name, d.code, year FROM races r JOIN circuits c JOIN results rs JOIN constructors cn JOIN qualifying q JOIN drivers d WHERE r.circuitId=c.circuitId AND d.driverId=rs.driverId AND r.raceId=rs.raceId AND cn.constructorId=rs.constructorId AND q.raceId=r.raceId AND q.driverId=rs.driverId AND cn.name IN (',teamsThisYear_str,') AND circuitref="',cct$circuitRef,'" ORDER BY year')
+st = dbGetQuery(ergastdb, q)
+
+
+st = melt(st,
+          id.vars = c("name","code", "year"),
+          measure.vars = c("q1", "q2", "q3", "fastestLapTime"))
+
+st['time'] = as.numeric(apply(st['value'], 1, timeInS))
+
+st = ddply(st, .(year), transform, ntime = time/min(time, na.rm=TRUE))
+stt = ddply(st,
+            .(name,year),
+            summarise, 
+            stime = min(ntime, na.rm=TRUE),
+            time =  min(time, na.rm=TRUE))
+
+stt$label = as.factor(stt$name)
+stt
+```
+
+```{r}
+compSupertime = function(df, cct,typ='stime', labelSize=0.7, smooth=FALSE,
+                         ylabel = 'Competitive Supertime (% of best)'){
+  g=ggplot(data=df,aes_string(x='year',y=typ))
+  if (smooth){g=g+stat_smooth(aes(colour=label),method = "lm", formula= y ~ x + I(x^2), se=FALSE, size=0.7)}
+  else { g=g+geom_line(aes(colour=label))}
+  g=g+ guides(colour=FALSE)+xlim(min(df$year),max(df$year)+1)
+  #cex is label size
+  g=g+geom_dl(aes(label = label, colour=label),method = list(cex = labelSize, dl.trans(x = x + .3), "last.bumpup"))
+  g=g+labs(x=NULL,y=ylabel,
+           title=paste0('F1 ', cct$race, ' - ','Competitive Supertimes',', ', min(stt$year), ' to ', max(df$year)),
+           subtitle = paste0(cct$circuit,', ',cct$location,', ',cct$country),
+           caption="Data from Ergast database, ergast.com/mrd")
+  champChartTheme(g)
+}
+```
+
+## Competitive Laptime Evolution
+
+Evolution of best competitive laptime over the years, based on the best laptimes recorded in either qualifying or the race.
+
+```{r bestCompetitiveTimeCircuit}
+compSupertime(stt,cct,smooth=F,typ='time', ylabel='Best competitive laptime (s)')+ylim(88,95)
+```
+
+
+```{r supertimeCircuit}
+#stt=stt[stt$year>2013,]
+compSupertime(stt,cct,smooth=F)
+```
+
+```{r supertimeCircuitSmooth}
+#stt=stt[stt$year>2013,]
+compSupertime(stt,cct,smooth=T)
+```
+
+
+
+```{r driverSupertimeCircuit}
+
+dst = ddply(st, .(code,year), summarise, stime = min(ntime, na.rm=TRUE))
+
+dst$label=as.factor(dst$code)
+#dst=dst[dst$year>2013,]
+
+dstt =  ddply(dst, .(code), summarise,
+             avstime=mean(stime, na.rm=TRUE),
+             races=sum(year>0))
+
+best=head(dstt[order(desc(dstt$races),dstt$avstime),],5)$code
+
+compSupertime(dst,cct,labelSize=0.4) 
+```
+
+```{r driverSupertimeCircuitSmooth}
+compSupertime(dst,cct,labelSize=0.4, smooth=T) 
+```
+
+```{r}
+dstt=dstt[dstt$code %in% driversThisYear,]
+#kable(dstt[order(desc(dstt$races),dstt$avstime),c('code','avstime')], format='markdown',row.names = FALSE)
+kable(dstt[order(desc(dstt$races),dstt$avstime),], format='markdown',row.names = FALSE)
+
+```
+
+```{r}
+dstt=dstt[dstt$code %in% driversThisYear,]
+#kable(dstt[order(desc(dstt$races),dstt$avstime),c('code','avstime')], format='markdown',row.names = FALSE)
+kable(dstt[order(dstt$avstime),], format='markdown',row.names = FALSE)
+
+```
+
+
+
