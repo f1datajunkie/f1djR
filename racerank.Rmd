@@ -1,0 +1,29 @@
+## RaceRank
+
+PageRank around races
+
+```{r}
+library(knitr)
+library(f1djR)
+
+library(RMySQL)
+ergastdb=dbConnect(MySQL(),user='root',password='f1',host='127.0.0.1',port=3399,dbname='ergastdb')
+```
+
+```{r}
+q=paste0('SELECT position AS Position, code AS Driver, lap AS Lap FROM lapTimes l JOIN drivers d JOIN races r WHERE d.driverId=l.driverId AND r.raceId=l.raceId AND year=2018 AND round=1 ORDER BY position ASC')
+laptimePos = dbGetQuery(ergastdb, q)
+laptimePos
+```
+
+
+```{r}
+q=paste0('select d1.code, d2.code, SUM(CASE WHEN l1.position> l2.position THEN 1 ELSE -1 END) weight  FROM drivers d1 JOIN drivers d2 JOIN races r1 JOIN races r2 JOIN lapTimes l1 JOIN lapTimes l2 where d1.driverId>d2.driverId AND l1.position>l2.position  AND r1.raceId=l1.raceId  AND r2.raceId=l2.raceId AND r1.raceId=r2.raceId and l1.lap=l2.lap and r1.year=2018 AND r1.round=1  GROUP BY d1.code,d2.code')
+laptimePos = dbGetQuery(ergastdb, q)
+```
+
+
+
+
+
+
