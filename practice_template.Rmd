@@ -5,11 +5,13 @@ output:
     variant: gfm
 params:
   psession: 1
-  stub: 'generic'
+  stub: 'bah'
   outdir: 'practice'
   rootdir: './reports'
   year: 2018
-  laptimeFilePath: "~/Dropbox/various/aus18_p1laptimes.csv"
+  country: 'Bahrain'
+  laptimeFilePath: "~/Dropbox/wranglingf1datawithr/f1djR/scraping/bah18_p1laptimes.csv"
+  
 ---
 
 ```{r dummy , include=FALSE}
@@ -23,6 +25,7 @@ rootdir = params$rootdir
 outdir = params$outdir
 stub = params$stub
 year = params$year
+country = params$country
 laptimeFilePath = params$laptimeFilePath
 
 options(knitr.kable.NA = '')
@@ -35,7 +38,6 @@ opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"_P",psession,"-"))
 
 ```{r init}
 library(f1djR)
-gp="Australia"
 plaps= read.csv(paste0(laptimeFilePath))
 plapsb=rawLap_augment_laptimes(plaps)
 ```
@@ -50,11 +52,73 @@ Activity in Free Practice `r psession` took place as follows:
 
 #qlapsb=qsessionOverride(qlapsb,0,1200,2600)
 #qlapsb=quali_purplePatch(qlapsb)
-promoter(augmented_session_utilisation_chart(plapsb,2,ordertype='ontrack',session=paste("F1",gp,year,", Free Practice",psession)))
+promoter(augmented_session_utilisation_chart(plapsb,2,ordertype='ontrack',session=paste("F1",country,year,", Free Practice",psession)))
 ```
 
 
+```{r}
+#head(plapsb)
+```
 
+
+```{r}
+stints=data.frame()
+for (name in levels(plapsb$name)){
+  dft=plapsb[plapsb$name==name,]
+  dft=streaks(dft$stint)
+  dft['name']=name
+  dft=dft[c('name','start','end','l')]
+  stints=rbind(stints,dft)
+}
+stints=ddply(stints,.(name),transform, stintNumber=1:length(l))
+stints['name']=factor(stints$name)
+#head(stints)
+```
+
+### Stints Summary
+
+```{r}
+psummary1 = ddply(stints, .(name), summarise,  total=sum(l), longest = max(l), nstints=max(stintNumber))
+psummary1=psummary1[rev(order(psummary1$total,psummary1$longest)),]
+names(psummary1) = c('Driver','Total laps','Longest run (laps)',"Stints")
+
+kable(psummary1,format='markdown', row.names = FALSE)
+```
+```{r}
+#psummary=merge(psummary1,psummary2[,c('name','driverbest','difftolead','difftoprev')],by.x='Driver',by.y='name')
+#psummary
+```
+```{r results='asis'}
+for (name in psummary1$Driver){
+  text="* `r name` completed `r sum(abs(stints[stints['name']==name,]['l']))` laps over `r nrow(stints[stints['name']==name,])` stints, with a longest run of `r max(abs(stints[stints['name']==name,]['l']))` laps"
+  cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+}
+```
+
+### Long Runs
+
+Laptimes on long runs of 8 or more laps
+```{r longruntimes,fig.width=10}
+longruns=merge(stints[abs(stints['l'])>=8,],plapsb,by.x=c('name','stintNumber'),by.y=c('name','stint'))
+longruns=arrange(longruns,name,lap)
+g=ggplot(longruns[!longruns['outlap'] & !longruns['pit'],])
+g=g+geom_line(aes(x=lapInStint,y=rawtime,group=stintNumber,colour=factor(stintNumber)))
+g+facet_wrap(~code)+guides(colour=FALSE)
+```
+
+### Performance Summary
+
+```{r}
+#Get row for which driverbest is th smallest, by driver
+#https://stackoverflow.com/a/42099608/454773
+psummary2=ddply(plapsb[plapsb$pit==FALSE,], .(name), function(x) x[which.min(x$driverbest),])
+psummary2 =psummary2[,c('name','number','driverbest')]
+psummary2 = psummary2[order(psummary2$driverbest),]
+psummary2$diff = c(0,diff(psummary2$driverbest))
+psummary2$gap = cumsum(psummary2$diff)
+names(psummary2)=c('Driver','Number','Fastest Lap', 'Diff','Gap')
+kable(psummary2[,c('Driver','Number','Fastest Lap','Gap', 'Diff')], format='markdown', row.names = FALSE)
+```
 
 
 
