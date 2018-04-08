@@ -17,7 +17,7 @@ driverCodeMap=function(name) unname(driverCodeMapCodes[name])
 #Mapping from driver names as they appear in FIA press releases
 ## to three letter driver codes
 driverCodes=c("L. HAMILTON"= "HAM", "S. VETTEL"= "VET", "N. ROSBERG"= "ROS", "D. RICCIARDO"= "RIC",
-              "D. KVYAT"= "KVY", "M. VERSTAPPEN"= "VES", "F. MASSA" = "MAS", "R. GROSJEAN"= "GRO",
+              "D. KVYAT"= "KVY", "M. VERSTAPPEN"= "VER", "F. MASSA" = "MAS", "R. GROSJEAN"= "GRO",
               "V. BOTTAS"= "BOT", "M. ERICSSON"= "ERI", "K. RAIKKONEN"= "RAI", "P. MALDONADO" = "MAL",
               "N. HULKENBERG"= "HUL", "S. PEREZ"= "PER", "C. SAINZ"= "SAI", "F. NASR"= "NAS",
               "J. BUTTON" = "BUT", "F. ALONSO"= "ALO", "R. MERHI"= "MER", "W. STEVENS"="STE",
