@@ -1,0 +1,159 @@
+```{r}
+library(knitr)
+opts_chunk$set(engine.path = '/Users/ajh59/anaconda3/bin/python')
+```
+
+
+
+```{python,engine.path ='/Users/ajh59/anaconda3/bin/python' }
+import sys
+print(sys.executable)
+```
+```{r}
+library(reticulate)
+use_condaenv(condaenv='anaconda3', required=T)
+#reticulate::py_module_available("tracery")
+```
+
+```{r}
+#Show cond environments
+conda_list("auto")
+```
+
+
+```{r}
+source_python("pd_tracery_demo.py")
+df1=data.frame(code=c('Jo','Sam'), pos=c('first','Second'))
+df1$result = pdt_demo(r_to_py(df1, convert=T))
+df1
+
+````
+```{r}
+library(knitr)
+library(f1djR)
+
+library(RMySQL)
+ergastdb=dbConnect(MySQL(),user='root',
+                   password='f1',host='127.0.0.1',port=3399,dbname='ergastdb')
+```
+
+
+```{r}
+ poles = function(driverCode, circuitRef='', year='', beforeround='', upto=FALSE){
+  if (circuitRef=='') cctclause=' WHERE '
+  else cctclause=paste0(' JOIN circuits c WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND circuitref="', circuitRef,'" AND ')
+  if (upto) {
+    uptoclause=paste0(' AND (year<',year,' OR (year=',year,' AND round<',beforeround,')) ')
+    yearclause=''
+    beforeroundclause=''
+  }
+    else {
+      uptoclause=''
+  if (year=='') yearclause=''
+  else yearclause=paste0(' AND year=',year,' ')
+     if (beforeround=='') beforeroundclause=''
+  else beforeroundclause=paste0(' AND round<',beforeround,' ')
+    }
+  
+  q=paste0('SELECT COUNT(code) AS poles FROM drivers d JOIN results rs JOIN races r ',cctclause,' r.raceId=rs.raceId AND d.code IN ("',driverCode,'") AND d.driverId=rs.driverId AND rs.grid=1 ',uptoclause,yearclause, beforeroundclause)
+  dbGetQuery(ergastdb, q)
+ }
+
+frontrows = function(driverCode, circuitRef='', year='', beforeround='', upto=FALSE){
+  if (circuitRef=='') cctclause=' WHERE '
+  else cctclause=paste0(' JOIN circuits c WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND circuitref="', circuitRef,'" AND ')
+  if (upto) {
+    uptoclause=paste0(' AND (year<',year,' OR (year=',year,' AND round<',beforeround,')) ')
+    yearclause=''
+    beforeroundclause=''
+  }
+    else {
+      uptoclause=''
+  if (year=='') yearclause=''
+  else yearclause=paste0(' AND year=',year,' ')
+     if (beforeround=='') beforeroundclause=''
+  else beforeroundclause=paste0(' AND round<',beforeround,' ')
+    }
+  
+  q=paste0('SELECT COUNT(code) AS poles FROM drivers d JOIN results rs JOIN races r ',cctclause,' r.raceId=rs.raceId AND d.code IN ("',driverCode,'") AND d.driverId=rs.driverId AND rs.grid IN (1,2) ',uptoclause,yearclause,beforeroundclause)
+  dbGetQuery(ergastdb, q)
+ }
+
+wins = function(driverCode, circuitRef='', year='', beforeround='', upto=FALSE){
+  if (circuitRef=='') cctclause=' WHERE '
+  else cctclause=paste0(' JOIN circuits c WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND circuitref="', circuitRef,'" AND ')
+  if (upto) {
+    uptoclause=paste0(' AND (year<',year,' OR (year=',year,' AND round<',beforeround,')) ')
+    yearclause=''
+    beforeroundclause=''
+  }
+    else {
+      uptoclause=''
+  if (year=='') yearclause=''
+  else yearclause=paste0(' AND year=',year,' ')
+     if (beforeround=='') beforeroundclause=''
+  else beforeroundclause=paste0(' AND round<',beforeround,' ')
+    }
+  
+  q=paste0('SELECT COUNT(code) AS wins FROM drivers d JOIN results rs JOIN races r ',cctclause,' r.raceId=rs.raceId AND d.code IN ("',driverCode,'") AND d.driverId=rs.driverId AND rs.position=1 ',uptoclause,yearclause,beforeroundclause)
+  dbGetQuery(ergastdb, q)
+}
+
+starts = function(driverCode, circuitRef='', year='', beforeround='', upto=FALSE){
+  if (circuitRef=='') cctclause=' WHERE '
+  else cctclause=paste0(' JOIN circuits c WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND circuitref="', circuitRef,'" AND ')
+    if (upto) {
+    uptoclause=paste0(' AND (year<',year,' OR (year=',year,' AND round<',beforeround,')) ')
+    yearclause=''
+    beforeroundclause=''
+  }
+    else {
+      uptoclause=''
+  if (year=='') yearclause=''
+  else yearclause=paste0(' AND year=',year,' ')
+     if (beforeround=='') beforeroundclause=''
+  else beforeroundclause=paste0(' AND round<',beforeround,' ')
+    }
+  
+  q=paste0('SELECT COUNT(code) AS wins FROM drivers d JOIN results rs JOIN races r ',cctclause,' r.raceId=rs.raceId AND d.code IN ("',driverCode,'") AND d.driverId=rs.driverId AND rs.grid>0 ',uptoclause,yearclause,beforeroundclause)
+  dbGetQuery(ergastdb, q)
+}
+#winstodate('HAM')
+polestodate('HAM',year=2018)
+```
+
+
+
+
+```{r}
+drivercode='VET'
+year=2018
+beforeround=2
+circuit='bahrain'
+
+df=data.frame(driver=drivercode)
+
+df['polesbeforenow']=poles(drivercode,year=year, beforeround=beforeround, upto=TRUE)
+df['winsbeforenow']=wins(drivercode,year=year, beforeround=beforeround, upto=TRUE)
+df['frontrowsbeforenow']=frontrows(drivercode,year=year, beforeround=beforeround, upto=TRUE)
+df['startsbeforenow']=starts(drivercode,year=year, beforeround=beforeround, upto=TRUE)
+df['polesthisyear']=poles(drivercode, year=year,beforeround=beforeround)
+df['winsthisyear']=wins(drivercode, year=year,beforeround=beforeround)
+df['frontrowsthisyear']=frontrows(drivercode, year=year,beforeround=beforeround)
+df['startsthisyear']=starts(drivercode, year=year,beforeround=beforeround)
+df['polesthiscct']=poles(drivercode,circuit=circuit)
+df['winsthiscct']=frontrows(drivercode,circuit=circuit)
+df['frontrowsthiscct']=frontrows(drivercode,circuit=circuit)
+df['startsthiscct']=starts(drivercode,circuit=circuit)
+df['pole']=drivercode=='VET'
+df['frontrownotpole']= drivercode=='HAM'
+df
+
+
+```
+```{r}
+source_python("pd_tracery_demo.py")
+
+df$result = pdt_pole(r_to_py(df, convert=T))
+df$result
+```
