@@ -1,0 +1,47 @@
+---
+title: "Track concordance template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  session: 'race'
+  stub: 'generic'
+  outdir: 'race'
+  rootdir: './reports'
+  year: 2018
+  country: 'generic'
+  results: NA
+  pitstops: NA
+  plist: NA
+---
+```{r tc_opts, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
+knitr::opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"-"))
+```
+
+```{r tc_setup}
+library(f1djR)
+
+session = params$session
+rootdir = params$rootdir
+outdir = params$outdir
+stub = params$stub
+year = params$year
+country = params$country
+results = params$results
+```
+
+## Track Concordance
+
+```{r tc_template}
+#battlemapFull_byDriver(lapTimes,'HAM','2017 RUS - HAM Battlemap',c(-20,20))
+#track_position_concordance(lapTimes,code)
+template=c(paste0("```{r trackconcordance_",year,"_",country,"_{{code}}}"),
+           "promoter(track_position_concordance(lapTimes,'{{code}}'))",
+           '```')
+src = lapply(plist, function(code) knit_expand(text=c(template)))
+
+```
+
+`r knit(text = unlist(src))`

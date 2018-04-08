@@ -1,0 +1,58 @@
+---
+title: "Pit stops Analysis template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  session: 'race'
+  stub: 'generic'
+  outdir: 'race'
+  rootdir: './reports'
+  year: 2018
+  country: 'generic'
+  results: NA
+  pitstops: NA
+---
+```{r la_opts, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
+knitr::opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"-"))
+```
+
+## Pit Stops
+
+```{r la_setup}
+library(f1djR)
+
+session = params$session
+rootdir = params$rootdir
+outdir = params$outdir
+stub = params$stub
+year = params$year
+country = params$country
+results = params$results
+pitstops=params$pitstops
+```
+
+
+
+```{r ps_checkcodes}
+pitstops['code']=apply(pitstops['driverId'],2,function(x) driverCodeMap(x))
+```
+
+```{r pithistory}
+promoter(pitHistory(pitstops))
+```
+
+```{r pitlollipop}
+pitLollipop(pitstops)
+```
+
+
+```{r pitStackedCumul}
+promoter(race.plot.pits.cumulativeTime(pitstops))
+```
+
+```{r pitDodged}
+promoter(race.plot.pits.dodged(pitstops))
+```

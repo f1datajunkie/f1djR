@@ -1,65 +1,79 @@
 ---
-title: "Lap analysis template"
-output: html_document
+title: "Lap Analysis template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  session: 'race'
+  stub: 'generic'
+  outdir: 'race'
+  rootdir: './reports'
+  year: 2018
+  country: 'generic'
+  results: NA
+  lapTimes: NA
+  pitstops: NA
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r la_opts, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
+knitr::opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"-"))
 ```
 
 ## Lap Analysis
 
-```{r}
+```{r la_setup}
 library(f1djR)
-year=2018
-raceNum=1
-gp='AUS'
+
+session = params$session
+rootdir = params$rootdir
+outdir = params$outdir
+stub = params$stub
+year = params$year
+country = params$country
+results = params$results
+lapTimes=params$lapTimes
+pitstops=params$pitstops
 ```
-```{r}
-#lapTimes=lapsData.df(year,1,con=dbConnect(RSQLite::SQLite(), './ergastdb13.sqlite'))
-#raceId=dbGetQuery(f1,'SELECT raceId FROM races WHERE year="2012" AND round="1"')
-lapTimes=lapsData.df(year,raceNum)
 
 
-```
 
+```{r la_pitstops}
 
-```{r}
-pitstops=pitsData.df(year,raceNum )
 pitstops['code']=apply(pitstops['driverId'],1,function(x) driverCodeErgast(x))
 pitstops['pit'] = TRUE
-pitstops
+#pitstops
 ```
 
-```{r}
+```{r la_augmentLaptimes}
 ll=lapTimes
 ll=merge(ll,pitstops[,c('driverId','lap','pit', 'strduration', 'rawduration')],by=c('driverId','lap'),all.x=TRUE)
 
 ll$pit[is.na(ll$pit)] = F
 
 ll2=rawLap_augment_laptimes(ll)
-head(ll2)
+#head(ll2)
 ```
 
 
-```{r}
+```{r la_neworder}
 
-results=resultsData.df(year,raceNum)
+
 if(!"code" %in% colnames(results)) {
   results['code']=apply(results['driverId'],1,function(x) driverCodeErgast(x))
 }
 
 neworder = results$code[order(results$pos )]
-neworder
+#neworder
 ```
 
-```{r}
+```{r la_race_session_utilisation}
 ## Need to be able to pass in alternative time labels
 ## Need a race augmentation rather than best laptimes
-augmented_session_utilisation_chart(ll2,2,ordertype='besttime',session=paste("F1",gp,year,", Race"), neworder=rev(neworder))
+augmented_session_utilisation_chart(ll2,2,ordertype='besttime',session=paste("F1",country,year,", Race"), neworder=rev(neworder))
 ```
 
-```{r lapheatmap}
+```{r la_lapheatmap}
 library(ggplot2)
 
 g=ggplot(ll2)+ geom_tile(aes(x=code, y=lap, fill = log(rawtime-min(rawtime))))
@@ -139,14 +153,14 @@ Diff map by pos
 
 - the only difference between this and above are the scales
 
-```{r}
+```{r la_unused1}
 #ll2=arrange(ll2,lap,cuml)
 #ll2=plyr::ddply(ll2,.(lap),transform,difftoprev=c(0,diff(cuml)))
 #?diff to lead? as cuml of diff to prev
 #ll2=plyr::ddply(ll2,.(lap),transform,difftolead=cumsum(difftoprev))
 ```
 
-```{r battlesearch}
+```{r la_battlesearch}
   g=ggplot(ll2[ll2$difftocarposbehind>0,])+ geom_tile(aes(x=position, y=lap, fill = log(difftocarposbehind)))
   
   #Add base lap delta from fastest in al times
@@ -169,7 +183,7 @@ Diff map by pos
 
 Then do an analysis to see how each driver is threatened?
 
-```{r driverbattlesearch}
+```{r la_driverbattlesearch}
 
  g=ggplot(ll2[ll2$difftocarposbehind>0,])+ geom_tile(aes(x=code, y=lap, fill = log(difftocarposbehind)))
   

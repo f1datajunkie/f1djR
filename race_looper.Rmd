@@ -1,0 +1,118 @@
+---
+title: "F1 Race Report Generator"
+output: html_document
+---
+
+```{r setups, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+
+rootdir = './reports'
+outdir="race"
+session='race'
+dir.create(rootdir, showWarnings = FALSE)
+dir.create(paste(rootdir, outdir, sep='/'), showWarnings = FALSE)
+
+
+library(f1djR)
+```
+
+
+## Race meeting settings
+
+```{r race_baseparams}
+stub='bah'
+year=2018
+country='Bahrain'
+
+raceNum=2
+
+
+opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"-"))
+
+#This stops clash with MySQL connection
+options(sqldf.driver = "SQLite")
+```
+
+
+## Report generation
+
+The following function will render a report for a race session.
+
+
+```{r race_data_import,message=FALSE}
+#Generate the report
+results =resultsData.df(year,raceNum)
+if(!"code" %in% colnames(results)) {
+  results['code']=apply(results['driverId'],2,function(x) driverCodeMap(x))
+}
+
+lapTimes=lapsData.df(year,raceNum)
+pitstops=pitsData.df(year,raceNum )
+lapTimes=battlemap_encoder(lapTimes)
+
+plist=intersect(c(results$code),unique(bmLapTimes$code))
+```
+
+```{r race_reportloop}
+output_files = c('* [Race](race/README.md)')
+
+#Fastlaps
+outfile = paste0(rootdir,'/',outdir,'/race_report_fastlaps.md')
+rmarkdown::render('fastlaps_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     year = year, country=country,session=session,
+                     results=results), output_file = outfile)
+output_files = c(output_files, paste0('\n\t* [Fastest Laps](', outdir, '/', outfile, ')' ))
+
+#Lap analysis
+outfile = paste0(rootdir,'/',outdir,'/race_report_lap_analysis.md')
+rmarkdown::render('lap_analysis_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     year = year, country=country,session=session,
+                     lapTimes=lapTimes, results=results,
+                     pitstops=pitstops), output_file = outfile)
+output_files = c(output_files, paste0('\n\t* [Lap Analysis](', outdir, '/', outfile, ')' ))
+
+
+#Track Concordance
+outfile = paste0(rootdir,'/',outdir,'/race_track_concordance.md')
+rmarkdown::render('race_track_concordance_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     year = year, country=country,session=session,
+                     plist=plist), output_file = outfile)
+output_files = c(output_files, paste0('\n\t* [Track Concordance](', outdir, '/', outfile, ')' ))
+
+
+
+#Battlemaps
+outfile = paste0(rootdir,'/',outdir,'/race_battlemaps.md')
+rmarkdown::render('race_battlemaps_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     year = year, country=country,session=session,
+                     plist=plist), output_file = outfile)
+output_files = c(output_files, paste0('\n\t* [Battlemaps](', outdir, '/', outfile, ')' ))
+
+#Race History Track Position
+# TO DO - where does leadlap get set?
+outfile = paste0(rootdir,'/',outdir,'/race_history_track_position.md')
+rmarkdown::render('race_history_track_position_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     year = year, country=country,session=session,
+                     lapTimes=lapTimes), output_file = outfile)
+output_files = c(output_files, paste0('\n\t* [Race History and Track Position](', outdir, '/', outfile, ')' ))
+
+
+
+
+#Pitstop analysis
+outfile = paste0(rootdir,'/',outdir,'/race_report_pitstop_analysis.md')
+rmarkdown::render('pit_stops_race_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     year = year, country=country,session=session,
+                     pitstops=pitstops), output_file = outfile)
+output_files = c(output_files, paste0('\n\t* [Pitstop Analysis](', outdir, '/', outfile, ')' ))
+
+
+writeLines(output_files, paste0(rootdir,'/SUMMARY_race.md'))
+```
