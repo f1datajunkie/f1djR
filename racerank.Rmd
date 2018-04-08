@@ -2,7 +2,7 @@
 
 PageRank around races
 
-```{r}
+```{r message=F,warning=F}
 library(knitr)
 library(f1djR)
 
@@ -17,13 +17,41 @@ laptimePos
 ```
 
 
+
 ```{r}
-q=paste0('select d1.code, d2.code, SUM(CASE WHEN l1.position> l2.position THEN 1 ELSE -1 END) weight  FROM drivers d1 JOIN drivers d2 JOIN races r1 JOIN races r2 JOIN lapTimes l1 JOIN lapTimes l2 where d1.driverId>d2.driverId AND l1.position>l2.position  AND r1.raceId=l1.raceId  AND r2.raceId=l2.raceId AND r1.raceId=r2.raceId and l1.lap=l2.lap and r1.year=2018 AND r1.round=1  GROUP BY d1.code,d2.code')
+q=paste0('select d1.code as D1, d2.code as D2, COUNT(*) weight FROM drivers d1 JOIN drivers d2 JOIN races r1 JOIN races r2 JOIN lapTimes l1 JOIN lapTimes l2 where   r1.raceId=r2.raceId and r2.raceId=l1.raceId and l1.raceId=l2.raceId and r1.year=2018 AND r1.round=1 and  l1.driverId=d1.driverId and l2.driverId=d2.driverId and l1.lap=l2.lap and l1.position>l2.position group by d1.code, d2.code  ')
+
 laptimePos = dbGetQuery(ergastdb, q)
+```
+```{r}
+laptimePos[(laptimePos$D2=='VET') | (laptimePos$D1=='VET'),]
+```
+
+```{r}
+library(igraph)
+gr = graph.data.frame(laptimePos)
+E(gr)$weight
+```
+
+```{r}
+pr =data.frame(name=names(page_rank(gr)$vector), pagerank=page_rank(gr)$vector)
+
+pr[rev(order(pr$pagerank)),]
 ```
 
 
 
+```{r}
+q=paste0('select d1.code as D1, d2.code as D2, SUM(l2.lap) weight FROM drivers d1 JOIN drivers d2 JOIN races r1 JOIN races r2 JOIN lapTimes l1 JOIN lapTimes l2 where   r1.raceId=r2.raceId and r2.raceId=l1.raceId and l1.raceId=l2.raceId and r1.year=2018 AND r1.round=1 and  l1.driverId=d1.driverId and l2.driverId=d2.driverId and l1.lap=l2.lap and l1.position>l2.position group by d1.code, d2.code  ')
 
+laptimePos = dbGetQuery(ergastdb, q)
+laptimePos$D1 <- replace(laptimePos$D1, laptimePos$D1=="VER", "VES")
+laptimePos$D2 <- replace(laptimePos$D2, laptimePos$D2=="VER", "VES")
+
+gr = graph.data.frame(laptimePos)
+pr =data.frame(name=names(page_rank(gr)$vector), pagerank=page_rank(gr)$vector)
+
+pr[rev(order(pr$pagerank)),]
+```
 
 
