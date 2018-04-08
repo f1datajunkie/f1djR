@@ -196,11 +196,14 @@ q=paste0('SELECT d.code, COUNT(code) AS startsforteam, c.name AS name FROM drive
 startsTeammod50=dbGetQuery(ergastdb, q)
 
 #looking for poles to date modulo 5 
-q=paste0('SELECT d.code, COUNT(code) AS poles FROM drivers d JOIN qualifying q JOIN races r WHERE r.raceId=q.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=q.driverId AND q.position=1',upto,' GROUP BY code HAVING poles>1 AND (poles+1) % 5 = 0')
+q=paste0('SELECT d.code, COUNT(code) AS poles FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.grid=1',upto,' GROUP BY code HAVING poles>1 AND (poles+1) % 5 = 0')
 lookingpolesmod5=dbGetQuery(ergastdb, q)
 
+#pole vs bes qualifying - pole may be result of penalty to best qualifier
+# TO DO
+
 #looking for front row starts to date modulo 5 
-q=paste0('SELECT d.code, COUNT(code) AS frontRows FROM drivers d JOIN qualifying q JOIN races r WHERE r.raceId=q.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=q.driverId AND q.position IN (1,2) ',upto,' GROUP BY code HAVING frontRows>1 AND (frontRows+1) % 5 = 0')
+q=paste0('SELECT d.code, COUNT(code) AS frontRows FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.grid IN (1,2) ',upto,' GROUP BY code HAVING frontRows>1 AND (frontRows+1) % 5 = 0')
 frontrowmod5=dbGetQuery(ergastdb, q)
 
 #looking for podiums to date modulo 5 
@@ -279,10 +282,9 @@ if (nrow(lookingwinspole10)>0) {
 
 ```
 
-```{r}
 
 
-```
+
 
 ```{r}
 #TO DO
@@ -340,7 +342,22 @@ library(directlabels)
 library(ggrepel)
 library(ggthemes)
 library(reshape2)
+```
 
+```{r}
+#Correlation betwen grid and finish position
+q=paste0('SELECT grid, position, COUNT(*) AS Count FROM races r JOIN circuits c JOIN results rs WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND circuitref="',cct$circuitRef,'" GROUP BY grid, position DESC')
+grid2pos =dbGetQuery(ergastdb, q)
+
+g=ggplot(data=grid2pos, aes(x=grid, y=position))+geom_point(aes(size=Count))
+g+geom_smooth(method = "lm", se = TRUE) +geom_abline(color='grey', linetype='dashed')+theme_bw()+ylab('Final Position')+xlab('Grid Position')
+```
+
+Historical likelihood of winning from pole: `r round(100*grid2pos[(grid2pos$grid==1) & (grid2pos$position==1),'Count']/sum(grid2pos[(grid2pos$position==1),'Count'], na.rm = TRUE), 2)`%
+
+
+
+```{r}
 
 champChartTheme=function(g){
   g = g + theme_minimal(base_family="Arial Narrow")
@@ -392,10 +409,18 @@ res = ddply(res, .(code), transform, totPts=cumsum(points)  )
 champ_chart(res,leaders, 'Driver Performance')
 ```
 
+Poles at this circuit:
+
+```{r}
+q=paste0('SELECT code AS Driver, COUNT(*) AS Poles FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND grid=1 AND circuitref="',cct$circuitRef,'" GROUP BY code DESC ORDER BY Poles DESC')
+winners = dbGetQuery(ergastdb, q)
+kable(winners, format='markdown',row.names = FALSE)
+```
+
 Individual winners at this circuit:
 
 ```{r}
-q=paste0('SELECT code AS Driver, COUNT(*) AS Wins FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position=1 AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code, code DESC ORDER BY Wins DESC')
+q=paste0('SELECT code AS Driver, COUNT(*) AS Wins FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position=1 AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code DESC ORDER BY Wins DESC')
 winners = dbGetQuery(ergastdb, q)
 kable(winners, format='markdown',row.names = FALSE)
 ```
@@ -404,7 +429,7 @@ kable(winners, format='markdown',row.names = FALSE)
 Podiums at this circuit:
 
 ```{r}
-q=paste0('SELECT code AS Driver, COUNT(*) AS Podiums FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position IN (1,2,3) AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code, code DESC ORDER BY Podiums DESC')
+q=paste0('SELECT code AS Driver, COUNT(*) AS Podiums FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position IN (1,2,3) AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code DESC ORDER BY Podiums DESC')
 winners = dbGetQuery(ergastdb, q)
 kable(winners, format='markdown',row.names = FALSE)
 ```
