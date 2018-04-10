@@ -17,7 +17,9 @@ params:
 library(knitr)
 library(ggplot2)
 knitr::opts_chunk$set(echo = FALSE)
-knitr::opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"-"))
+opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
+knitr::opts_chunk$set(fig.path = paste0("images/f1_" ,year, "_", stub, "-"))
+
 ```
 
 # Fast laps
