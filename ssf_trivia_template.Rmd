@@ -1,0 +1,202 @@
+---
+title: "F1 Story So Far - Trivia Template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  stub: 'generic'
+  outdir: 'reports'
+  rootdir: './reports'
+  round: 2
+  year: 2018
+  ergastdb: NA
+ 
+  driversThisYear_str: NA
+  q_driverteamsthisyear: NA
+---
+
+```{r ssf_cs_setup, include=FALSE}
+
+round=params$round
+year=params$year
+stub=params$stub
+
+ergastdb=params$ergastdb
+driversThisYear_str = params$driversThisYear_str
+q_driverteamsthisyear=params$q_driverteamsthisyear
+
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+```
+
+
+
+
+### Upcoming Race Trivia...
+
+
+```{r results='asis'}
+
+```
+
+```{r upcomingtrivia, results='asis'}
+
+#These currently rely on db being current up to end of previous race
+#need to add: AND (year<',year,' OR (year=',year,' AND round<',round,'))
+
+upto=paste0(' AND (year<',year,' OR (year=',year,' AND round<',round,')) ')
+
+## STARTS
+
+#races to date modulo 25
+q=paste0('SELECT d.code, COUNT(code)+1 AS races FROM drivers d JOIN results rs WHERE d.driverId=rs.driverId AND code IN (',driversThisYear_str,') GROUP BY code HAVING races>1 AND races % 25 = 0')
+raceStartsThisTime  = dbGetQuery(ergastdb, q)
+
+
+#starts for a team
+q=paste0('SELECT d.code, COUNT(code) AS startsforteam, c.name AS name FROM drivers d JOIN races r JOIN results rs JOIN constructors c WHERE c.constructorId=rs.constructorId AND d.driverId=rs.driverId AND r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') ',upto,' GROUP BY d.code, c.name HAVING (startsforteam+1) % 50 = 0')
+startsTeammod50=dbGetQuery(ergastdb, q)
+
+#looking for poles to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS poles FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.grid=1',upto,' GROUP BY code HAVING poles>1 AND (poles+1) % 5 = 0')
+lookingpolesmod5=dbGetQuery(ergastdb, q)
+
+#pole vs bes qualifying - pole may be result of penalty to best qualifier
+# TO DO
+
+#looking for front row starts to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS frontRows FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.grid IN (1,2) ',upto,' GROUP BY code HAVING frontRows>1 AND (frontRows+1) % 5 = 0')
+frontrowmod5=dbGetQuery(ergastdb, q)
+
+#looking for podiums to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS podiums FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND  d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position IN (1,2,3) ',upto,' GROUP BY code HAVING podiums>1 AND (podiums+1) % 5 = 0')
+lookingpodiumsmod5=dbGetQuery(ergastdb, q)
+
+#looking for wins to date modulo 5 
+q=paste0('SELECT d.code, COUNT(code) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY code HAVING wins>1 AND (wins+1) % 5 = 0')
+lookingwinsmod5=dbGetQuery(ergastdb, q)
+
+#Looking for wins from pole
+q=paste0('SELECT d.code, COUNT(*) AS winsFromPole FROM drivers d JOIN results rs JOIN races r JOIN qualifying q WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND q.driverId=rs.driverId AND q.raceId=rs.raceId AND q.position=1 AND rs.position=1 AND d.code IN (',driversThisYear_str,') ',upto,' GROUP BY d.code HAVING winsFromPole>1 AND (winsFromPole+1) % 10 = 0 ORDER BY winsFromPole DESC')
+lookingwinspole10=dbGetQuery(ergastdb, q)
+
+#wins for a teams
+q=paste0('SELECT d.code, COUNT(*) AS winsfordriverteam, c.name AS name FROM drivers d JOIN races r JOIN results rs JOIN constructors c JOIN (',q_driverteamsthisyear,') dt WHERE c.constructorId=rs.constructorId AND d.driverId=rs.driverId AND r.raceId=rs.raceId AND rs.position=1 AND dt.code=d.code AND dt.name=c.name AND d.code IN (',driversThisYear_str,') ',upto,' GROUP BY d.code, c.name HAVING (winsfordriverteam+1) % 10 = 0')
+lookingWinsDriverTeammod10=dbGetQuery(ergastdb, q)
+
+if ((nrow(lookingpolesmod5) + nrow(lookingpolesmod5) + nrow(lookingpodiumsmod5) + nrow(lookingwinsmod5) +nrow(lookingwinspole10) + nrow(startsTeammod50) +nrow(lookingWinsDriverTeammod10))>0) {
+  cat("Coming in to the race:\n")
+}
+
+if (nrow(raceStartsThisTime)>0) {
+  cat('This will be:\n')
+  for (row in 1:nrow(raceStartsThisTime)) {
+    text = " * `r raceStartsThisTime[row, 'code']`'s `r toOrdinal(raceStartsThisTime[row, 'races'])` grand prix"
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+if (nrow(startsTeammod50)>0) {
+  for (row in 1:nrow(startsTeammod50)) {
+    text = '- `r startsTeammod50[row, "code"]` is looking for their `r toOrdinal(startsTeammod50[row, "startsforteam"]+1)` start for `r startsTeammod50[row, "name"]`'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+if (nrow(lookingpolesmod5)>0) {
+  for (row in 1:nrow(lookingpolesmod5)) {
+    text = '- `r lookingpolesmod5[row, "code"]` is looking for their `r toOrdinal(lookingpolesmod5[row, "poles"]+1)` ever pole position'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+
+if (nrow(frontrowmod5)>0) {
+  for (row in 1:nrow(frontrowmod5)) {
+    text = '- `r frontrowmod5[row, "code"]` is looking for their `r toOrdinal(frontrowmod5[row, "frontRows"]+1)` ever front row start'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+
+if (nrow(lookingpodiumsmod5)>0) {
+  for (row in 1:nrow(lookingpodiumsmod5)) {
+    text = '- `r lookingpodiumsmod5[row, "code"]` is looking for their `r toOrdinal(lookingpodiumsmod5[row, "podiums"]+1)` ever podium finish'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+
+if (nrow(lookingwinsmod5)>0) {
+  for (row in 1:nrow(lookingwinsmod5)) {
+    text = '- `r lookingwinsmod5[row, "code"]` is looking for their `r toOrdinal(lookingwinsmod5[row, "wins"]+1)` ever race win'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+lookingWinsDriverTeammod10
+if (nrow(lookingWinsDriverTeammod10)>0) {
+  for (row in 1:nrow(lookingWinsDriverTeammod10)) {
+    text = '- `r lookingWinsDriverTeammod10[row, "code"]` is looking for their `r toOrdinal(lookingWinsDriverTeammod10[row, "winsfordriverteam"]+1)` ever win for `r lookingWinsDriverTeammod10[row,"name"]`'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+if (nrow(lookingwinspole10)>0) {
+  for (row in 1:nrow(lookingwinspole10)) {
+    text = '- `r lookingwinspole10[row, "code"]` is looking for their `r toOrdinal(lookingwinspole10[row, "winsFromPole"]+1)` ever win from pole'
+    cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
+  }
+}
+
+```
+
+
+
+
+
+
+
+```{r triviaqueries}
+# TO DO
+#Most wins by nationality
+#wins by current drivers
+q=paste0('SELECT d.driverRef, nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality')
+#wins by nationality
+q=paste0('SELECT d.driverRef, d.nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality')
+q=paste0('SELECT curr.driverRef AS Current, ever.driverRef AS AllTime,curr.nationality, ever.wins FROM (SELECT d.driverRef, nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.code IN (',driversThisYear_str,') AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality) curr, (SELECT d.driverRef, d.nationality, COUNT(*) AS wins FROM drivers d JOIN results rs JOIN races r WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND rs.position=1 ',upto,' GROUP BY d.driverId, nationality) ever WHERE curr.nationality=ever.nationality and curr.wins=ever.wins and curr.driverRef!= ever.driverRef' )
+
+#dbGetQuery(ergastdb, q)
+```
+
+```{r todomotetrivia}
+# TO DO
+#points scoring streak
+#pole streak
+#podium streak
+#front row streak
+#winning streak
+
+#celebrations
+#eg if there is a 200 starts driver, what other drivers have had 200 starts (do a check on 0, <=5, <=10, <20; Nth driver to achieve it )
+
+#TO DO
+#consecutive finishes in points, on podium, in lead, pole, this season, this team, ever
+```
+
+```{r winsfrompoleever}
+## TO DO
+#record - most wins from pole ever 
+# - we don't have qualifying results far enough back in ergast db for this
+q=paste0('SELECT d.driverRef, COUNT(*) AS winsFromPole FROM drivers d JOIN results rs JOIN races r JOIN qualifying q WHERE r.raceId=rs.raceId AND d.driverId=rs.driverId AND q.driverId=rs.driverId AND  q.raceId=rs.raceId AND q.position=1 AND rs.position=1 ',upto,' GROUP BY d.driverRef ORDER BY winsFromPole DESC')
+#dbGetQuery(ergastdb, q)
+```
+
+
+
+```{r to_do_trivia1}
+# TO DO
+#at circuit:
+# pole sitters who win (conversion rate: pole-> win)
+# pole sitters who made podium  (conversion rate: pole-> podium)
+```

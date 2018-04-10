@@ -1,0 +1,125 @@
+---
+title: "F1 Story So Far Template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  stub: 'generic'
+  year: 2018
+  outdir: 'reports'
+  rootdir: './reports'
+  cct: NA
+  ergastdb: NA
+  teamsThisYear_str: NA
+---
+
+```{r ssf_cp_setup, include=FALSE}
+
+year=params$year
+stub=params$stub
+cct=params$cct
+ergastdb=params$ergastdb
+teamsThisYear_str=params$teamsThisYear_str
+
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
+knitr::opts_chunk$set(fig.path = paste0("images/f1_" ,year, "_", stub, "-"))
+
+```
+
+### Drivers' & Constructors' Circuit Performance
+
+How well do drivers and constructors perform at the circuit?
+
+The *Driver Performance Chart* and *Constructor Performance Chart* show how drivers and constructors fare based on points scored at the circuit. (Note that points schemes may change over the reporting period.)
+
+
+```{r gridfinalcorr}
+#Correlation betwen grid and finish position
+q=paste0('SELECT grid, position, COUNT(*) AS Count FROM races r JOIN circuits c JOIN results rs WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND circuitref="',cct$circuitRef,'" GROUP BY grid, position DESC')
+grid2pos =dbGetQuery(ergastdb, q)
+
+g=ggplot(data=grid2pos, aes(x=grid, y=position))+geom_point(aes(size=Count))
+g+geom_smooth(method = "lm", se = TRUE) +geom_abline(color='grey', linetype='dashed')+theme_bw()+ylab('Final Position')+xlab('Grid Position')
+```
+
+Historical likelihood of winning from pole: `r round(100*grid2pos[(grid2pos$grid==1) & (grid2pos$position==1),'Count']/sum(grid2pos[(grid2pos$position==1),'Count'], na.rm = TRUE), 2)`%
+
+
+```{r champ_chart_def}
+
+champ_chart = function(res,leaders, typ, ylabel='Championship Points'){
+  g=ggplot(data=res[res$code %in% leaders$code,], aes(x=year, y=totPts))+ geom_line(aes(col=code))
+  g=g+geom_point(data=res[(res$position <=3) & (res$code %in% leaders$code),],aes( size=factor(position),shape=factor(position),col=code)) + scale_size_manual(values=c(2,1.2,1.0)) + scale_shape_manual(values=c(2,6,1))
+  
+  g=g+ geom_line(data=res[!(res$code %in% leaders$code),], aes(group=code),col='grey')
+  
+  #Label the lines
+  g=g+geom_label_repel(data=leaders,aes(x=until, y=s,label = code, col=code), na.rm = TRUE, arrow = arrow(length = unit(0.01, 'npc')), nudge_y =3, nudge_x =2, segment.size = 0.2,size=2)
+  
+  g=g + guides(color=FALSE)+ylim(0,round_any(max(res$totPts)+10,10))#+theme_bw()
+  g=g+xlim(min(res$year),max(res$year)+5)
+  g = g+ylab(ylabel)+xlab(NULL)+scale_y_continuous(breaks=seq(0,round_any(max(res$totPts)+10,10),10))
+  g=g + guides(size=FALSE, shape=FALSE)
+  g=g+labs(x=NULL,
+           title=paste0('F1 ', cct$race, ' - ',typ,', ', min(res$year), ' to ', max(res$year)),
+           subtitle = paste0(cct$circuit,', ',cct$location,', ',cct$country),
+           caption="Data from Ergast database, ergast.com/mrd")
+  champChartTheme(g)
+}
+```
+
+
+
+```{r driver_circuit_performance}
+
+q=paste0('SELECT code, MAX(year) as until, SUM(points) s FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND  d.driverId=rs.driverId AND circuitref="' ,cct$circuitRef,'" GROUP BY code DESC ORDER BY s DESC LIMIT 10')
+leaders = dbGetQuery(ergastdb, q)
+
+q=paste0('SELECT year, code, position, points FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND circuitref="',cct$circuitRef,'" ORDER BY year')
+ #The dbGetQuery() function is provided by the DBI library
+res = dbGetQuery(ergastdb, q)
+
+res = ddply(res, .(code), transform, totPts=cumsum(points)  )
+
+champ_chart(res,leaders, 'Driver Performance')
+```
+
+Poles at this circuit:
+
+```{r cct_poles}
+q=paste0('SELECT code AS Driver, COUNT(*) AS Poles FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND grid=1 AND circuitref="',cct$circuitRef,'" GROUP BY code DESC ORDER BY Poles DESC')
+winners = dbGetQuery(ergastdb, q)
+kable(winners, format='markdown',row.names = FALSE)
+```
+
+Individual winners at this circuit:
+
+```{r cct_winners}
+q=paste0('SELECT code AS Driver, COUNT(*) AS Wins FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position=1 AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code DESC ORDER BY Wins DESC')
+winners = dbGetQuery(ergastdb, q)
+kable(winners, format='markdown',row.names = FALSE)
+```
+
+
+Podiums at this circuit:
+
+```{r cct_podiums}
+q=paste0('SELECT code AS Driver, COUNT(*) AS Podiums FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND position IN (1,2,3) AND circuitref="',cct$circuitRef,'" AND code IN (',driversThisYear_str,') GROUP BY code DESC ORDER BY Podiums DESC')
+winners = dbGetQuery(ergastdb, q)
+kable(winners, format='markdown',row.names = FALSE)
+```
+
+```{r team_circuit_performance}
+
+q=paste0('SELECT cn.name AS code, MAX(year) as until, SUM(points) s FROM races r JOIN circuits c JOIN results rs JOIN constructors cn WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND  cn.constructorId=rs.constructorId AND circuitref="',cct$circuitRef,'" GROUP BY cn.constructorId DESC ORDER BY s DESC LIMIT 5')
+leaders = dbGetQuery(ergastdb, q)
+
+q=paste0('SELECT year, cn.name AS code, position, points FROM races r JOIN circuits c JOIN results rs JOIN constructors cn WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND cn.constructorId=rs.constructorId AND circuitref="',cct$circuitRef,'" ORDER BY year')
+res = dbGetQuery(ergastdb, q)
+
+
+res = ddply(res, .(code), transform, totPts=cumsum(points)  )
+champ_chart(res,leaders, 'Constructor Performance')
+```

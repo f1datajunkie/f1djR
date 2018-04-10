@@ -1,0 +1,44 @@
+---
+title: "F1 Story So Far - Championship Standings Template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  stub: 'generic'
+  outdir: 'reports'
+  rootdir: './reports'
+  cct: NA
+  ergastdb: NA
+  year: 2018
+  round: 2
+---
+```{r ssf_cs_setup, include=FALSE}
+library(knitr)
+
+year=params$year
+stub=params$stub
+round=params$round
+ergastdb=params$ergastdb
+
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+```
+
+### Drivers' Championship - Standings
+
+
+
+
+```{r cs_df_driver_champ}
+q=paste0('SELECT position AS Position, d.code AS Driver, ds.points AS Points FROM driverStandings ds JOIN races r JOIN drivers d WHERE ds.raceId=r.raceId AND d.driverId=ds.driverId AND year=', year, ' AND round=', round-1, ' ORDER BY position ASC')
+df_championship_at_round = dbGetQuery(ergastdb, q)
+kable(df_championship_at_round, format='markdown',row.names = FALSE)
+```
+
+### Constructors' Championship - Standings
+```{r cs_const_df_driver_champ}
+q=paste0('SELECT position AS Position, c.name AS Constructor, cs.points AS Points FROM constructorStandings cs JOIN races r JOIN constructors c WHERE cs.raceId=r.raceId AND c.constructorId=cs.constructorId AND year=', year, ' AND round=', round-1, ' ORDER BY position ASC')
+df_const_championship_at_round = dbGetQuery(ergastdb, q)
+kable(df_const_championship_at_round, format='markdown',row.names = FALSE)
+```
+

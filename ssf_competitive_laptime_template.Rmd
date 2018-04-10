@@ -1,0 +1,145 @@
+---
+title: "F1 Story So Far - Competitive Laptimes Template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  stub: 'generic'
+  year: 2018
+  outdir: 'reports'
+  rootdir: './reports'
+  cct: NA
+  ergastdb: NA
+  teamsThisYear_str: NA
+---
+
+```{r ssf_cls_setup, include=FALSE}
+library(knitr)
+library(f1djR)
+library(toOrdinal)
+library(plyr)
+
+year=params$year
+stub=params$stub
+cct=params$cct
+ergastdb=params$ergastdb
+teamsThisYear_str=params$teamsThisYear_str
+
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
+knitr::opts_chunk$set(fig.path = paste0("images/f1_" ,year, "_", stub, "-"))
+
+```
+
+```{r ssf_cls_supertimedef}
+q=paste0('SELECT q1, q2, q3, fastestLapTime, cn.name, d.code, year FROM races r JOIN circuits c JOIN results rs JOIN constructors cn JOIN qualifying q JOIN drivers d WHERE r.circuitId=c.circuitId AND d.driverId=rs.driverId AND r.raceId=rs.raceId AND cn.constructorId=rs.constructorId AND q.raceId=r.raceId AND q.driverId=rs.driverId AND cn.name IN (',teamsThisYear_str,') AND circuitref="',cct$circuitRef,'" ORDER BY year')
+st = dbGetQuery(ergastdb, q)
+
+
+st = melt(st,
+          id.vars = c("name","code", "year"),
+          measure.vars = c("q1", "q2", "q3", "fastestLapTime"))
+
+st['time'] = as.numeric(apply(st['value'], 1, timeInS))
+
+st = ddply(st, .(year), transform, ntime = time/min(time, na.rm=TRUE))
+stt = ddply(st,
+            .(name,year),
+            summarise, 
+            stime = min(ntime, na.rm=TRUE),
+            time =  min(time, na.rm=TRUE))
+
+stt$label = as.factor(stt$name)
+```
+
+
+
+```{r ssf_cls_supertime_chart}
+compSupertime = function(df, cct,typ='stime', labelSize=0.7, smooth=FALSE,
+                         ylabel = 'Competitive Supertime (% of best)'){
+  g=ggplot(data=df,aes_string(x='year',y=typ))
+  if (smooth){g=g+stat_smooth(aes(colour=label),method = "lm", formula= y ~ x + I(x^2), se=FALSE, size=0.7)}
+  else { g=g+geom_line(aes(colour=label))}
+  g=g+ guides(colour=FALSE)+xlim(min(df$year),max(df$year)+1)
+  #cex is label size
+  g=g+geom_dl(aes(label = label, colour=label),method = list(cex = labelSize, dl.trans(x = x + .3), "last.bumpup"))
+  g=g+labs(x=NULL,y=ylabel,
+           title=paste0('F1 ', cct$race, ' - ','Competitive Supertimes',', ', min(stt$year), ' to ', max(df$year)),
+           subtitle = paste0(cct$circuit,', ',cct$location,', ',cct$country),
+           caption="Data from Ergast database, ergast.com/mrd")
+  champChartTheme(g)
+}
+```
+
+## Drivers' & Constructors' Competitive Laptime Evolution
+
+Evolution of best competitive laptime over the years, based on the best laptimes recorded in either qualifying or the race.
+
+```{r bestCompetitiveTimeCircuit}
+compSupertime(stt,cct,smooth=F,typ='time', ylabel='Best competitive laptime (s)')
+```
+
+
+### Circuit Competitive Supertimes
+
+*Supertimes* are often provided as a season wide performance metric for comparing performances over a season. At the manufacturer level, they are typically calculated for each manufacturer as the average of their fastest single lap recorded by the team at each race weekend expressed as a percentage of the fastest single lap overall.
+
+We can also derive a reduced *competitive supertime* by basing the calculation on best laptime recorded across the qualifying and race sessions, omitting laptimes recorded in the practice sessions.
+
+We can draw on the notion of supertimes to derive two simple measures for comparing team performances based on laptime:
+
+- evolution of manufacturer competitive supertime for a circuit over the years;
+- evolution of manufacturer competitive supertime for each circuit over the course of a season.
+
+We can also produce driver performance metrics based on the competitive supertime of each driver.
+
+
+```{r supertimeCircuit}
+#stt=stt[stt$year>2013,]
+compSupertime(stt,cct,smooth=F)
+```
+
+```{r supertimeCircuitSmooth}
+#stt=stt[stt$year>2013,]
+compSupertime(stt,cct,smooth=T)
+```
+
+
+
+```{r driverSupertimeCircuit}
+
+dst = ddply(st, .(code,year), summarise, stime = min(ntime, na.rm=TRUE))
+
+dst$label=as.factor(dst$code)
+#dst=dst[dst$year>2013,]
+
+dstt =  ddply(dst, .(code), summarise,
+             avstime=mean(stime, na.rm=TRUE),
+             races=sum(year>0))
+
+best=head(dstt[order(desc(dstt$races),dstt$avstime),],5)$code
+
+compSupertime(dst,cct,labelSize=0.4) +ylim(1.0,1.07)
+```
+
+```{r driverSupertimeCircuitSmooth}
+compSupertime(dst,cct,labelSize=0.4, smooth=T) +ylim(1.0,1.07)
+```
+
+```{r ssf_cls_supertimetableX}
+dstt=dstt[dstt$code %in% driversThisYear,]
+#kable(dstt[order(desc(dstt$races),dstt$avstime),c('code','avstime')], format='markdown',row.names = FALSE)
+#kable(dstt[order(desc(dstt$races),dstt$avstime),], format='markdown',row.names = FALSE)
+
+```
+
+```{r ssf_cls_supertimetable}
+dstt=dstt[dstt$code %in% driversThisYear,]
+#kable(dstt[order(desc(dstt$races),dstt$avstime),c('code','avstime')], format='markdown',row.names = FALSE)
+kable(dstt[order(dstt$avstime),], format='markdown',row.names = FALSE)
+
+```
+
+
+
