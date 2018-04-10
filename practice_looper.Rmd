@@ -20,7 +20,7 @@ dir.create(paste(rootdir, outdir, sep='/'), showWarnings = FALSE)
 ```{r}
 stub='aus'
 year=2018
-
+country='Australia'
 
 ```
 
@@ -35,7 +35,7 @@ renderDoc = function() {
   rmarkdown::render(basefile,
                     params = list(psession = psession,
                                   stub=stub, outdir = outdir, rootdir=rootdir,
-                                  year = year,
+                                  year = year, country=country,
                                   laptimeFilePath = laptimeFilePath),
                     output_file = outfile 
                     )
@@ -46,7 +46,7 @@ renderDoc = function() {
 ```{r message=FALSE}
 #For each practice, generate the report
 
-output_files = c('* [Practice](practice/README.md)')
+output_files = c('* Practice')
 
 for (psession in c(1,2,3)) {
   laptimeFilePath=paste0("~/Dropbox/various/",stub,"18_p",psession,"laptimes.csv")

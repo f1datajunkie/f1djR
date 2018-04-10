@@ -4,13 +4,13 @@ output:
   md_document:
     variant: gfm
 params:
-  psession: 1
+  psession: 3
   stub: 'bah'
   outdir: 'practice'
   rootdir: './reports'
   year: 2018
   country: 'Bahrain'
-  laptimeFilePath: "~/Dropbox/wranglingf1datawithr/f1djR/scraping/bah18_p1laptimes.csv"
+  laptimeFilePath: "~/Dropbox/wranglingf1datawithr/f1djR/scraping/bah18_p3laptimes.csv"
   
 ---
 
@@ -75,6 +75,22 @@ stints['name']=factor(stints$name)
 #head(stints)
 ```
 
+### Performance Summary
+
+```{r}
+#Get row for which driverbest is th smallest, by driver
+#https://stackoverflow.com/a/42099608/454773
+psummary2=ddply(plapsb[plapsb$pit==FALSE,], .(name), function(x) x[which.min(x$driverbest),])
+psummary2 =psummary2[,c('name','number','driverbest')]
+psummary2 = psummary2[order(psummary2$driverbest),]
+psummary2$diff = c(0,diff(psummary2$driverbest))
+psummary2$gap = cumsum(psummary2$diff)
+names(psummary2)=c('Driver','Number','Fastest Lap', 'Diff','Gap')
+kable(psummary2[,c('Driver','Number','Fastest Lap','Gap', 'Diff')], format='markdown', row.names = FALSE)
+```
+
+
+
 ### Stints Summary
 
 ```{r}
@@ -104,20 +120,6 @@ longruns=arrange(longruns,name,lap)
 g=ggplot(longruns[!longruns['outlap'] & !longruns['pit'],])
 g=g+geom_line(aes(x=lapInStint,y=rawtime,group=stintNumber,colour=factor(stintNumber)))
 g+facet_wrap(~code)+guides(colour=FALSE)
-```
-
-### Performance Summary
-
-```{r}
-#Get row for which driverbest is th smallest, by driver
-#https://stackoverflow.com/a/42099608/454773
-psummary2=ddply(plapsb[plapsb$pit==FALSE,], .(name), function(x) x[which.min(x$driverbest),])
-psummary2 =psummary2[,c('name','number','driverbest')]
-psummary2 = psummary2[order(psummary2$driverbest),]
-psummary2$diff = c(0,diff(psummary2$driverbest))
-psummary2$gap = cumsum(psummary2$diff)
-names(psummary2)=c('Driver','Number','Fastest Lap', 'Diff','Gap')
-kable(psummary2[,c('Driver','Number','Fastest Lap','Gap', 'Diff')], format='markdown', row.names = FALSE)
 ```
 
 
