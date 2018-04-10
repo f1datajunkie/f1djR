@@ -17,32 +17,95 @@ dir.create(paste(rootdir, outdir, sep='/'), showWarnings = FALSE)
 ## Race meeting settings
 
 ```{r}
-stub = 'aus'
+stub = 'bah'
 year = 2018
-racenum = 1
-gp = "Australia"
+racenum = 2
+gp = "Bahrain"
+
+override=c(0,1800,3000)
+
 laptimeFilePath=paste0("~/Dropbox/various/",stub,"18_qualilaptimes.csv")
+laptimeFilePath=paste0("~/Dropbox/wranglingf1datawithr/f1djR/scraping/",stub,"18_qualilaptimes.csv")
+```
+
+```{r}
+# TO DO - pass in quali session cuml time cutoff / override
+# Need to find a way to auto detect this?
 ```
 
 ## Report generation
 
 The following function will render a report for qualifying.
 
-```{r}
-renderDoc = function() {
-  basefile="quali_template.Rmd"
-  
-  rmarkdown::render(basefile,
-                    params = list(stub=stub, outdir = outdir, gp = gp,
-                                  year = year, racenum = racenum,
-                                  rootdir = rootdir,
-                                  laptimeFilePath = laptimeFilePath),
-                    output_file =  paste(rootdir,outdir,'quali_report.md', sep='/'),
-                    )
-}
 
+```{r}
+library(knitr)
+library(f1djR)
+
+qlaps= read.csv(laptimeFilePath)
+cutoff=c(15,10,2)
+
+
+##Session classifications page
+#xx=pageGrabber('http://www.fia.com/events/fia-formula-one-world-championship/season-2017/session-classifications-19')
+qr=qualiResults.df(year,racenum)
+
+qr=quali_progression_ergast_tx(qr)
+#qr=quali_progression_ergast_tx(ergastifyQualiClass(fiaSessionClassQualifyingTidy(fiaTableGrabber(xx,4))))
+
+
+qlapsb=rawLap_augment_quali(qlaps)
+# TO DO - need to find a better way of setting gaps
+qlapsb=qsessionOverride(qlapsb,override[1], override[2], override[3])
+#qlapsb=qsessionOverride(qlapsb,0,1500,3000)
+qlapsb=quali_purplePatch(qlapsb)
 ```
 
 ```{r}
-renderDoc()
+output_files = c('*  Qualifying')
+
+#Quali session result
+outfile = 'quali_session_result.md'
+rmarkdown::render('quali_result_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     qr=qr), output_file = paste(rootdir,outdir,outfile, sep='/'))
+output_files = c(output_files, paste0('\n\t* [Session Result](', outdir, '/', outfile, ')' ))
+
+
+#Quali progression
+outfile = 'quali_progression.md'
+rmarkdown::render('quali_template_child_progression.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     qr=qr), output_file = paste(rootdir,outdir,outfile,sep='/'))
+output_files = c(output_files, paste0('\n\t* [Progression](', outdir, '/', outfile, ')' ))
 ```
+
+
+
+
+
+```{r}
+
+
+#Quali utilisation
+outfile = 'quali_utilisation.md'
+rmarkdown::render('quali_template_child_session_utilisation.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     qlapsb=qlapsb, override=override), 
+       output_file = paste(rootdir,outdir,outfile,sep='/'))
+output_files = c(output_files, paste0('\n\t* [Session Utilisation](', outdir, '/', outfile, ')' ))
+
+
+
+#Quali cut-off evolution
+outfile = 'quali_cutoff_evolution.md'
+rmarkdown::render('quali_cutoff_evolution_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     qr=qr, qlapsb=qlapsb, override=override), output_file = paste(rootdir,outdir,outfile,sep='/'))
+output_files = c(output_files, paste0('\n\t* [Cutoff Time Evolution](', outdir, '/', outfile, ')' ))
+
+
+writeLines(output_files, paste0(rootdir,'/SUMMARY_quali.md'))
+```
+
+

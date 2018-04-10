@@ -1,3 +1,42 @@
+---
+title: "Quali Progression template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  session: 'quali'
+  stub: 'generic'
+  outdir: 'race'
+  rootdir: './reports'
+  year: 2018
+  qr: NA
+---
+
+```{r q_cp_setup, echo=FALSE}
+library(knitr)
+library(f1djR)
+
+knitr::opts_chunk$set(warning = FALSE, message=FALSE, echo=FALSE)
+
+rootdir = params$rootdir
+outdir = params$outdir
+stub = params$stub
+year = params$year
+qr = params$qr
+
+options(knitr.kable.NA = '')
+```
+
+```{r q_pr_opts, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
+knitr::opts_chunk$set(fig.path = paste0("images/f1_" ,year, "_", stub, "-"))
+
+
+qrm=quali_progression_ergast_melt(qr)
+```
+
 
 Drivers progressed through the qualifying session as follows:
 
@@ -5,13 +44,12 @@ Drivers progressed through the qualifying session as follows:
 promoter_ergastf1dj(core_qualifying_rank_slopegraph(qr,qrm,spacer=0.21,reverse=T))
 ```
 
+```{r q_pr_1to2, results='asis'}
 
-```{r}
- qsr=subset(qr, subset=(q1time<q2time))
+qsr=subset(qr, subset=(q1time<q2time))
  qsr['driverName']=factor(qsr[['driverName']])
-```
-
-```{r results='asis'}
+ 
+ 
 cat(paste0(knit_child(text="Going from Q1 to Q2:\n",quiet=TRUE),'\n'))
 
 if (length(levels(qsr$driverName))==0) {
@@ -27,12 +65,15 @@ for (name in levels(qsr$driverName)) {
 }
 ```
 
-
-```{r results='asis'}
+```{r q_pr_2to3}
 qsr=subset(qr, subset=(q2time<q3time))
 qsr['driverName']=factor(qsr[['driverName']])
 cat(paste0(knit_child(text="Going from Q2 to Q3:\n",quiet=TRUE),'\n'))
 
+```
+
+
+```{r qpr_noprogess, results='asis'}
 if (length(levels(qsr$driverName))==0) {
   cat(paste0(knit_child(text='* all drivers improved on their best laptime from the previous session',quiet=TRUE),'\n'))
 }

@@ -1,0 +1,63 @@
+---
+title: "Quali Session Result template"
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  session: 'quali'
+  stub: 'generic'
+  outdir: 'race'
+  rootdir: './reports'
+  year: 2018
+  qr: NA
+  qlapsb: NA
+  override: NA
+  gp: 'generic'
+---
+
+```{r q_ce_setup, echo=FALSE}
+library(knitr)
+library(f1djR)
+
+knitr::opts_chunk$set(warning = FALSE, message=FALSE, echo=FALSE)
+
+rootdir = params$rootdir
+outdir = params$outdir
+stub = params$stub
+year = params$year
+gp = params$gp
+qr = params$qr
+qlapsb = params$qlapsb
+override = params$override
+
+options(knitr.kable.NA = '')
+```
+
+
+```{r qr_ce_opts, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
+knitr::opts_chunk$set(fig.path = paste0("images/f1_" ,year, "_", stub, "-"))
+```
+
+
+```{r cutofflooper}
+template=c("
+## Q{{session}}",
+"```{r quali{{session}}_gridplot}
+c = ifelse({{session}}==3,2,10)
+intercept= c(mean(qr[!is.na(qr['q{{session}}pos']) & (qr['q{{session}}pos']==c | qr['q{{session}}pos']==c+1),'q1time']))
+promoter_ergastf1dj(gridPlotTime(qr,'q{{session}}time',pos='q{{session}}pos', session='Q{{session}}',intercepts = intercept))
+```",
+"
+### `r ifelse({{session}}==3,'Front Row ','')`Cut-off Time Evolution
+
+The cut-off time in Q{{session}} evolved as follows:",
+"```{r quali{{session}}_cutoff}
+promoter_ergastf1dj(quali_session_times_plots(qlapsb[qlapsb['qsession']=={{session}},],{{session}},FALSE,FALSE,TRUE,cutoff)+theme_bw())
+```")
+src = lapply(c(1,2,3), function(session) knit_expand(text=c(template)))
+
+```
+`r knit(text = unlist(src))`
