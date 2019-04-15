@@ -18,7 +18,7 @@ params:
 knitr::opts_chunk$set(warning = FALSE, message=FALSE, echo=FALSE)
 #If we also set echo=FALSE, the code will be hidden in the knitted report
 library(knitr)
-
+library(toOrdinal)
 
 psession = params$psession
 rootdir = params$rootdir
@@ -39,7 +39,8 @@ opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"_P",psession,"-"))
 ```{r init}
 library(f1djR)
 plaps= read.csv(paste0(laptimeFilePath))
-plapsb=rawLap_augment_laptimes(plaps)
+#Ignore time of day in first row
+plapsb=rawLap_augment_laptimes(plaps,ignore.first = TRUE)
 ```
 
 ## Session Utilisation
@@ -56,12 +57,9 @@ promoter(augmented_session_utilisation_chart(plapsb,2,ordertype='ontrack',sessio
 ```
 
 
-```{r}
-#head(plapsb)
-```
 
 
-```{r}
+```{r p_template_stints}
 stints=data.frame()
 for (name in levels(plapsb$name)){
   dft=plapsb[plapsb$name==name,]
@@ -77,39 +75,48 @@ stints['name']=factor(stints$name)
 
 ### Performance Summary
 
-```{r}
+```{r p_summaryperf}
 #Get row for which driverbest is th smallest, by driver
 #https://stackoverflow.com/a/42099608/454773
 psummary2=ddply(plapsb[plapsb$pit==FALSE,], .(name), function(x) x[which.min(x$driverbest),])
 psummary2 =psummary2[,c('name','number','driverbest')]
+psummary2 = psummary2[order(-psummary2$driverbest),]
+psummary2$revdiff = c(0,-diff(psummary2$driverbest))
+psummary2$revgap = cumsum(psummary2$revdiff)
 psummary2 = psummary2[order(psummary2$driverbest),]
 psummary2$diff = c(0,diff(psummary2$driverbest))
 psummary2$gap = cumsum(psummary2$diff)
-names(psummary2)=c('Driver','Number','Fastest Lap', 'Diff','Gap')
-kable(psummary2[,c('Driver','Number','Fastest Lap','Gap', 'Diff')], format='markdown', row.names = FALSE)
+psummary2$pc=round(psummary2$driverbest /(min(psummary2$driverbest,na.rm=TRUE)) *100,1)
+psummary2$pos=1:nrow(psummary2)
+names(psummary2)=c('Driver','Number','Fastest Lap', 'revDiff','revGap','Diff','Gap','PerCent','Rank')
+
+kable(psummary2[,c('Driver','Number','Fastest Lap', 'PerCent', 'Gap', 'Diff')], format='markdown', row.names = FALSE)
 ```
 
+In Free Practice `r psession`,  `r psummary2[psummary2['Rank']==1,'Driver']` topped the timing sheets with a `r psummary2[psummary2['Rank']==1,'Fastest Lap']`s fastest lap, `r psummary2[psummary2['Rank']==1,'revDiff']` ahead of `r psummary2[psummary2['Rank']==2,'Driver']` in second.
 
+```{r tracery_p_bits}
+#need truth ove all practice sessions, so eg repeating FP1 etc
+#[X, Y] all? did long runs of N laps, with Z completing most laps overall
+```
 
 ### Stints Summary
 
-```{r}
+```{r p_summarystints}
 psummary1 = ddply(stints, .(name), summarise,  total=sum(l), longest = max(l), nstints=max(stintNumber))
 psummary1=psummary1[rev(order(psummary1$total,psummary1$longest)),]
 names(psummary1) = c('Driver','Total laps','Longest run (laps)',"Stints")
 
 kable(psummary1,format='markdown', row.names = FALSE)
 ```
-```{r}
-#psummary=merge(psummary1,psummary2[,c('name','driverbest','difftolead','difftoprev')],by.x='Driver',by.y='name')
-#psummary
-```
-```{r results='asis'}
+
+```{r summarydriver,results='asis'}
 for (name in psummary1$Driver){
-  text="* `r name` completed `r sum(abs(stints[stints['name']==name,]['l']))` laps over `r nrow(stints[stints['name']==name,])` stints, with a longest run of `r max(abs(stints[stints['name']==name,]['l']))` laps"
+  text="* `r name` completed `r sum(abs(stints[stints['name']==name,]['l']))` laps over `r nrow(stints[stints['name']==name,])` stints, with a longest run of `r max(abs(stints[stints['name']==name,]['l']))` laps and a fastest lap of `r psummary2[psummary2['Driver']==name,'Fastest Lap']`s overall (`r toOrdinal(psummary2[psummary2['Driver']==name,'Rank'])`, `r ifelse(psummary2[psummary2['Driver']==name,'PerCent']!=100,paste0(psummary2[psummary2['Driver']==name,'PerCent'],'% of session best'), ifelse(psummary2[psummary2['Driver']==name,'Rank']==1,'fastest in the session',paste0('just ',round(psummary2[psummary2['Driver']==name,'Gap'],3),'s behind the fastest time in the session')))`)."
   cat(paste0(knit_child(text=text,quiet=TRUE),'\n'))
 }
 ```
+
 
 ### Long Runs
 
