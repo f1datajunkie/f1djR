@@ -47,7 +47,9 @@ timeInS=function(tStr){
 
 ##==========  URL BUILDERS
 
+if (!exists("API_PATH")) API_PATH="http://ergast.com/api/f1/"
 API_PATH="http://ergast.com/api/f1/"
+#API_PATH='http://localhost:8000/api/f1/'
 #API_PATH="http://ergast.com/api/fe/"
 
 #?include a format adder function?
@@ -366,6 +368,7 @@ qualiResultsParse.df=function(url){
     driverId=character(),
     code=character(),
     constructorId=character(),
+    constructorName=character(),
     position=numeric(),
     Q1=character(),
     Q2=character(),
@@ -388,6 +391,7 @@ qualiResultsParse.df=function(url){
         driverId=as.character(drd$Driver$driverId),
         code=as.character(driverCodeExists(drd$Driver)),
         constructorId=as.character(drd$Constructor$constructorId),
+        constructorName=as.character(drd$Constructor$name),
         position=as.integer(drd$position),
         Q1=Q1,
         Q2=Q2,
