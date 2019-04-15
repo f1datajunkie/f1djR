@@ -18,9 +18,9 @@ dir.create(paste(rootdir, outdir, sep='/'), showWarnings = FALSE)
 ## Race meeting settings
 
 ```{r}
-stub='aus'
+stub='esp'
 year=2018
-country='Australia'
+country='Spain'
 
 ```
 
@@ -30,7 +30,7 @@ country='Australia'
 The following function will render a report for a practice session.
 
 ```{r}
-renderDoc = function() {
+renderDoc = function(outfile) {
   basefile="practice_template.Rmd"
   rmarkdown::render(basefile,
                     params = list(psession = psession,
@@ -43,20 +43,22 @@ renderDoc = function() {
 
 ```
 
-```{r message=FALSE}
+```{r ploop_setup, message=FALSE}
 #For each practice, generate the report
 
 output_files = c('* Practice')
 
 for (psession in c(1,2,3)) {
-  laptimeFilePath=paste0("~/Dropbox/various/",stub,"18_p",psession,"laptimes.csv")
-  outfile = paste0(rootdir,'/',outdir,'/practice_report_p', psession, '.md')
-  renderDoc()
+  #~/Dropbox/wranglingf1datawithr/f1djR/scraping/bah18_p3laptimes.csv
+  #laptimeFilePath=paste0("~/Dropbox/various/",stub,"18_p",psession,"laptimes.csv")
+  laptimeFilePath=paste0("~/Dropbox/wranglingf1datawithr/f1djR/scraping/",stub,"18_p",psession,"laptimes.csv")
+  outfile = paste0('practice_report_p', psession, '.md')
+  renderDoc(paste(rootdir,outdir,outfile,sep='/'))
    
-  output_files = c(output_files, paste0('\n\t* [FP',psession, '](', outdir, '/',
-                                       outfile, ')' ))
+  output_files = c(output_files, paste0('\n\t* [FP',psession, '](',
+                                       paste(outdir,outfile,sep='/'), ')' ))
 }
 
-writeLines(output_files, "SUMMARY_practice.md")
+writeLines(output_files, paste0(rootdir,"/SUMMARY_practice.md"))
 ```
 
