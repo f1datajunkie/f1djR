@@ -16,29 +16,47 @@ params:
 ```{r ssf_cs_setup, include=FALSE}
 library(knitr)
 
+library(toOrdinal)
+
 year=params$year
 stub=params$stub
 round=params$round
 ergastdb=params$ergastdb
 
 knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+
 ```
 
 ### Drivers' Championship - Standings
 
 
-
-
-```{r cs_df_driver_champ}
+```{r cs_df_driver_champ_table}
 q=paste0('SELECT position AS Position, d.code AS Driver, ds.points AS Points FROM driverStandings ds JOIN races r JOIN drivers d WHERE ds.raceId=r.raceId AND d.driverId=ds.driverId AND year=', year, ' AND round=', round-1, ' ORDER BY position ASC')
 df_championship_at_round = dbGetQuery(ergastdb, q)
-kable(df_championship_at_round, format='markdown',row.names = FALSE)
 ```
 
+```{r for_tracery }
+#for tracery, eg: coming in to the Nth round; if round<=3: after the first N round(s); if N-round <=3: with [only? another|just]+ N rounds to go; if half way etc. 
+#?? a reg exp like parser fo generating, rather than matching, sentences?
+```
+
+Coming in to the `r toOrdinal(round)` round,  `r df_championship_at_round[df_championship_at_round['Position']==1,'Driver']` leads the Drivers' Championship on `r df_championship_at_round[df_championship_at_round['Position']==1,'Points']` points, `r df_championship_at_round[df_championship_at_round['Position']==1,'Points']-df_championship_at_round[df_championship_at_round['Position']==2,'Points']` points ahead of second placed `r df_championship_at_round[df_championship_at_round['Position']==2,'Driver']` on `r df_championship_at_round[df_championship_at_round['Position']==2,'Points']`  points. `r df_championship_at_round[df_championship_at_round['Position']==3,'Driver']` completes the top three on  `r df_championship_at_round[df_championship_at_round['Position']==3,'Points']` points.
+
+```{r cs_df_driver_champ,results='asis'}
+kable(df_championship_at_round, format='markdown',row.names = FALSE,encoding='UTF-8')
+```
+
+
 ### Constructors' Championship - Standings
-```{r cs_const_df_driver_champ}
+```{r cs_const_df_driver_champ_table}
 q=paste0('SELECT position AS Position, c.name AS Constructor, cs.points AS Points FROM constructorStandings cs JOIN races r JOIN constructors c WHERE cs.raceId=r.raceId AND c.constructorId=cs.constructorId AND year=', year, ' AND round=', round-1, ' ORDER BY position ASC')
 df_const_championship_at_round = dbGetQuery(ergastdb, q)
+```
+
+In the Constructors' Championship,  `r df_const_championship_at_round[df_const_championship_at_round['Position']==1,'Constructor']` lead the championship on `r df_const_championship_at_round[df_const_championship_at_round['Position']==1,'Points']` points, with `r df_const_championship_at_round[df_const_championship_at_round['Position']==2,'Constructor']` `r df_const_championship_at_round[df_const_championship_at_round['Position']==1,'Points']-df_const_championship_at_round[df_const_championship_at_round['Position']==2,'Points']` points behind in second.
+
+```{r cs_const_df_driver_champ}
 kable(df_const_championship_at_round, format='markdown',row.names = FALSE)
 ```
+
 

@@ -1,0 +1,113 @@
+```{r cs_df_champ}
+q=paste0('SELECT d.code, round, position, ds.points FROM driverStandings ds JOIN races r JOIN drivers d WHERE ds.raceId=r.raceId AND d.driverId=ds.driverId AND year=',year)
+df_championship_by_round = dbGetQuery(ergastdb, q)
+#df_championship_by_round
+```
+
+
+driver performaance based on the 10 points for a win down to 1 for 10th model:
+
+```{r driver_circuit_performance}
+
+q=paste0('SELECT code, MAX(year) as until, SUM(11-CASE WHEN position<11 THEN position ELSE 11 END ) s FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND  d.driverId=rs.driverId AND circuitref="' ,cct$circuitRef,'" GROUP BY code DESC ORDER BY s DESC LIMIT 10')
+leaders = dbGetQuery(ergastdb, q)
+
+q=paste0('SELECT year, code, position, CASE WHEN position<11 THEN 11-position ELSE 0 END AS pts FROM races r JOIN circuits c JOIN results rs JOIN drivers d WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND d.driverId=rs.driverId AND circuitref="',cct$circuitRef,'" ORDER BY year')
+ #The dbGetQuery() function is provided by the DBI library
+res = dbGetQuery(ergastdb, q)
+
+res = ddply(res, .(code), transform, totPts=cumsum(pts)  )
+
+champ_chart(res,leaders, 'Driver Performance')
+```
+
+Same for constructors
+
+```{r team_circuit_performance}
+
+q=paste0('SELECT cn.name AS code, MAX(year) as until, SUM(11-CASE WHEN position<11 THEN position ELSE 11 END ) s FROM races r JOIN circuits c JOIN results rs JOIN constructors cn WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND  cn.constructorId=rs.constructorId AND circuitref="',cct$circuitRef,'" GROUP BY cn.constructorId DESC ORDER BY s DESC LIMIT 5')
+leaders = dbGetQuery(ergastdb, q)
+
+q=paste0('SELECT year, cn.name AS code, position, CASE WHEN position<11 THEN 11-position ELSE 0 END AS pts FROM races r JOIN circuits c JOIN results rs JOIN constructors cn WHERE r.circuitId=c.circuitId AND r.raceId=rs.raceId AND cn.constructorId=rs.constructorId AND circuitref="',cct$circuitRef,'" ORDER BY year')
+res = dbGetQuery(ergastdb, q)
+
+
+res = ddply(res, .(code), transform, totPts=cumsum(pts)  )
+champ_chart(res,leaders, 'Constructor Performance')
+```
+
+
+
+
+```{r pointsRace10th,fig.cap="",message=FALSE}
+if (FALSE){
+  #This highlights a battle
+  
+  #Generate a guide that is the mean points value of 10th and 11th positions
+  dfx=ddply(df[df['position']==10 | df['position']==11,],
+            .(round), summarize, points=mean(points))
+  #Set the driverId of this line to an empty string
+  dfx$code=''
+  
+  #Identify the drivers fighting for 10th at the end of round 10
+  #Include other drivers contending this position earlier in the season
+  #Ideally, we would automatically identify the positions around this cluster
+  df.contending = df[df$round==10 & df$pos>=9 & df$pos<=12,'driverId']
+  #The following filter identifies drivers fighting for 10th after 17
+  ##df.contending =df[df$round==17 & df$pos>=10 & df$pos<=12,'driverId']
+  df.battle=df[df$driverId %in% df.contending,]
+  
+  #Base chart
+  g=ggplot(df.battle,aes(x=round,y=points,colour=code))
+  g=championship_race_charter(g)
+  g=direct.label(g,list('last.bumpup',cex=0.7,dl.trans(x=x+0.2)))
+  #Add in the guide line
+  g = g + geom_line(data=dfx, aes(x=round, y=points),
+                    col='black', linetype="dashed")
+  g
+}
+```
+
+
+
+```{r champRaceStandings,fig.cap="The championship race in terms of standings"}
+#The lap chart style chart - plotting position rather than points
+if (FALSE){#was if round>2
+  g = ggplot(df, aes(x=round, y=position,group=code))
+  g = championship_race_charter(g)
+  #If we know the size of the labels, we can easily fashion our own placement
+  g = g + geom_text(data=df[df['round']==max(df['round']),],
+            aes(x=round+0.9,label=code),size=3, vjust=-0.4)
+  g = g+theme_bw()
+  g
+}
+```
+
+
+
+```{r champRaceStandingsTotPoints,fig.cap="Annotating the championship standings chart with championship points at each round, coloured by points earned per race"}
+if (FALSE){#was if round>2
+  #Sort by ascending round
+  df = arrange(df, round)
+  #Derive how many points each driver scored in each race
+  df = ddply(df, .(code), transform, racepoints=diff(c(0,points)))
+
+  g = g + geom_text(data=df, aes(label=points, col=racepoints), vjust=-0.4, size=3)
+  #Colour scheme for the points scored in each race
+  g + scale_color_continuous(high='red')
+}
+```
+
+
+
+```{r pointsRaceNonzero, message=FALSE,fig.cap="Cumulative points scored at the end of each round in the 2014 Drivers' Championship for drivers scoring at least 10 points by round 17"}
+if (FALSE) {
+  df.tenUp=df[df$round==(round-1) & df$points>=10,]$code
+
+  #All the other elements of the chart definition are the same
+  g=ggplot(df[df$code %in% df.tenUp,],aes(x=round,y=points,colour=code))
+  g= championship_race_charter(g) 
+  direct.label(g,list('last.bumpup',cex=0.7,dl.trans(x=x+0.2)))
+}
+```
+
