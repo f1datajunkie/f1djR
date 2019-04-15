@@ -114,6 +114,9 @@ core_qualifying_rank_slopegraph= function(qualiResults,qm,spacer=0.25,
   qm=ddply(qm,.(session),transform,qspos = rank(qspos,ties.method = "first"))
 
   g=ggplot(qualiResults,aes(x=session,y=laptime), environment = .e)
+  # TO DO
+  #The colour is wrong if two drivers have the same time and one must be cut
+  #In such a case, the driver who set the time first gets through
   g= g+geom_text(data=qm[qm['session']=='q1time',],
                  aes(x=1,y=qspos,label=driverName,
                      colour=(qspos>cutoff[1] )
