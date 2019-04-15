@@ -12,7 +12,7 @@ shift <- function(x, n){
 ## with derived data columns
 #TO DO - add an optional colour to show laps slower than previous lap as red
 #TO DO - prev lap should be prev flying lap (not inlap or outlap or 1st lap)
-rawLap_augment_laptimes = function(df){
+rawLap_augment_laptimes_base = function(df, ignore.first=FALSE){
   #This is a fudge for TH scraped data legacy
   if(!"code" %in% colnames(df)) {
     if ("name" %in% colnames(df))
@@ -20,12 +20,9 @@ rawLap_augment_laptimes = function(df){
     else if ("driverId" %in% colnames(df))
       df['code']=apply(df['driverId'],2,function(x) driverCodeErgast(x))
   }
-  df=plyr::ddply(df,.(code),transform,cuml=cumsum(rawtime))
-  df$pit= df$pit %in% c(TRUE,'True')
-  df=arrange(df,code, -lap)
-  df=plyr::ddply(df,.(code),transform,stint=1+sum(pit)-cumsum(pit))
   df=arrange(df,code, lap)
-  df=plyr::ddply(df,.(code,stint),transform,lapInStint=1:length(stint))
+  df=plyr::ddply(df,.(code),transform,cuml=cumsum(rawtime))
+
 
   #Difference to car ahead by lap
   df=arrange(df,lap,cuml)
@@ -34,9 +31,14 @@ rawLap_augment_laptimes = function(df){
   df=plyr::ddply(df,.(lap),transform,difftolead=cumsum(difftoprev))
   #Diff to car behind is a shift
   df$difftocarposbehind=shift(df$difftoprev, 1)
+  #Best laptime in lap
+  df=plyr::ddply(df,.(lap),transform,lapbest=min(rawtime,na.rm = TRUE))
+  df['lapbestpc']=df['rawtime']/df['lapbest']
 
   df=arrange(df,code, lap)
-  df=plyr::ddply(df,.(code),transform,driverbest=cummin(c(9999,rawtime[2:length(rawtime)])))
+  #Is this becuase we may have a time of day at start
+  if (ignore.first) df=plyr::ddply(df,.(code),transform,driverbest=cummin(c(9999,rawtime[2:length(rawtime)])))
+  else df=plyr::ddply(df,.(code),transform,driverbest=cummin(rawtime))
   #Need a patch in case there is only an entry time.. ie rawtime length==1
   #TO DO - another correction to make a singleton time a pit lap
   df=df[!(is.na(df$driverbest)), ]
@@ -47,19 +49,39 @@ rawLap_augment_laptimes = function(df){
                        ifelse(df['rawtime']==df['driverbest'],
                               'green',
                               'black'))
+
+  df['purplepc']=df['rawtime']/df['purple']
+  df['purplefpc']=df['rawtime']/min(df['purple'],na.rm = TRUE)
+  if (ignore.first) df$purplepc = ifelse(df$purplepc<1,NA,df$purplepc)
+  df
+}
+
+rawLap_augment_laptimes_pitstints = function (df){
+  #Add a pit column if it doesn't exist
+  if(! "pit" %in% colnames(df)) df['pit']=FALSE
+  df$pit= df$pit %in% c(TRUE,'True')
+  #redundancy in below - or bootstrapped improvement?
+  df=arrange(df,code, -lap)
+  df=plyr::ddply(df,.(code),transform,stint=1+sum(pit)-cumsum(pit))
   df=arrange(df,code, lap)
-  df= plyr::ddply(df,.(code),transform,outlap=c(FALSE, diff(pit)==-1))
+  df=plyr::ddply(df,.(code,stint),transform,lapInStint=1:length(stint),
+                 outlap=c(FALSE, diff(pit)==-1))
   df['outlap']= df['outlap'] | df['lapInStint']==1 |  (df['rawtime'] > 2.0 * min(df['purple']) & (!df['pit']) )
   df=plyr::ddply(df,
            .(code),
            transform,
-           stint=cumsum(outlap),
-           lapInStint=1:length(stint))
+           stint=cumsum(outlap))
   df=plyr::ddply(df,
            .(code, stint),
            transform,
            lapInStint=1:length(stint))
   df
+}
+
+rawLap_augment_laptimes = function(df,ignore.first=FALSE){
+  #if not pits in columns, thne add one with dummy false?
+  df = rawLap_augment_laptimes_base(df,ignore.first)
+  rawLap_augment_laptimes_pitstints(df)
 }
 
 plot_session_utilisation_chart = function (df,size=2,session=''){
@@ -292,8 +314,8 @@ longrunsplot_model=function(longruns,
 
 #Try to identify gaps between qualifying sessions
 
-rawLap_augment_quali=function(df){
-  df=rawLap_augment_laptimes(df)
+rawLap_augment_quali=function(df, ignore.first=FALSE){
+  df=rawLap_augment_laptimes(df, ignore.first)
   df=arrange(df,cuml)
   df['gap']=c(0,diff(df[,'cuml']))
   df['gapflag']= (df['gap']>=300)
