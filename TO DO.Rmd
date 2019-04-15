@@ -8,3 +8,30 @@ Need to cast code as factor - and check throughout?
 #This shows factors for code as factor??
 #results['code']$code
 (unique(lapTimes['code'])$code)
+
+#Yellow
+lapTimesw=lapsData.df(2017,14)
+la=rawLap_augment_laptimes(lapTimesw)
+#next now in augment
+la['lbpfpc']=la['rawtime']/min(la['purple'])
+la2=ddply(la,.(lap),summarise,medlbpc=median(lapbestpc),meanlbpc=mean(lapbestpc),medppc=median(purplepc),meanppc=mean(purplepc))
+ggplot(la2)+geom_text(aes(x=medlbpc,y=meanlbpc,label=lap),col='red')+geom_text(aes(x=medppc,y=meanppc,label=lap),col='blue') 
+blue seems best, over 1.15? set threshold based on (purple+pit)/purple? If within that, ignore?
+ggplot(la2)+geom_text(aes(x=medlb,y=medlbpc,label=lap),col='blue')
+In:
+ ggplot(la2)+geom_text(aes(x=medl,y=minlb,label=lap),col='blue')
+ ggplot(la2)+geom_text(aes(x=lbpfpcmed,y=medlbpc,label=lap),col='blue')
+then lap 40 presumably folk chase back after pit, so account for that somehow?
+
+lw=battlemap_encoder(lapTimesw)
+track_position_chart(lw)
+
+
+#Lap deltas
+
+l4=ddply(l4,.(driverId),transform,ddiff=c(0,diff(diff)))
+l4=ddply(l4,.(driverId),transform,dgap=c(0,diff(gap)))
+l4=ddply(l4,.(driverId),transform,dchasediff=c(0,diff(chasediff)))
+l4m=melt(l4,id.vars=c('driverId','lap'),measure.vars=c('ddiff','dgap','dchasediff'))
+#incl out of lim bounds +coord_cartesian
+ggplot(l4m[l4m$driverId=='raikkonen',])+geom_bar(stat='identity',aes(x=lap,y=value,fill=variable),position ="dodge")+coord_cartesian(ylim=c(-10, 10))
