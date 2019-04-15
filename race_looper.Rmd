@@ -21,11 +21,11 @@ library(f1djR)
 ## Race meeting settings
 
 ```{r race_baseparams}
-stub='bah'
+stub='esp'
 year=2018
-country='Bahrain'
+country='Spain'
 
-raceNum=2
+raceNum=5
 
 
 opts_chunk$set(fig.path = paste0("images/f1_",year,"_",stub,"-"))
