@@ -17,12 +17,12 @@ dir.create(paste(rootdir, outdir, sep='/'), showWarnings = FALSE)
 ## Race meeting settings
 
 ```{r}
-stub = 'bah'
+stub = 'esp'
 year = 2018
-racenum = 2
-gp = "Bahrain"
+round = 5
+gp = "Spain"
 
-override=c(0,1800,3000)
+override=c(0,1200,2500)
 
 laptimeFilePath=paste0("~/Dropbox/various/",stub,"18_qualilaptimes.csv")
 laptimeFilePath=paste0("~/Dropbox/wranglingf1datawithr/f1djR/scraping/",stub,"18_qualilaptimes.csv")
@@ -38,7 +38,17 @@ laptimeFilePath=paste0("~/Dropbox/wranglingf1datawithr/f1djR/scraping/",stub,"18
 The following function will render a report for qualifying.
 
 
-```{r}
+```{r q_db_setup, echo = FALSE}
+library(RMySQL)
+ergastdb=dbConnect(MySQL(),user='root',password='f1',host='127.0.0.1',port=3399,dbname='ergastdb')
+
+q=paste0('SELECT name AS TEAM, constructorRef AS constructorId FROM constructors c')
+teams=dbGetQuery(ergastdb, q)
+```
+
+
+
+```{r q_api_calls}
 library(knitr)
 library(f1djR)
 
@@ -48,18 +58,19 @@ cutoff=c(15,10,2)
 
 ##Session classifications page
 #xx=pageGrabber('http://www.fia.com/events/fia-formula-one-world-championship/season-2017/session-classifications-19')
-qr=qualiResults.df(year,racenum)
-
+qr=qualiResults.df(year,round)
+qr=merge(qr,teams)
 qr=quali_progression_ergast_tx(qr)
 #qr=quali_progression_ergast_tx(ergastifyQualiClass(fiaSessionClassQualifyingTidy(fiaTableGrabber(xx,4))))
 
 
-qlapsb=rawLap_augment_quali(qlaps)
+qlapsb=rawLap_augment_quali(qlaps,ignore.first = TRUE)
 # TO DO - need to find a better way of setting gaps
 qlapsb=qsessionOverride(qlapsb,override[1], override[2], override[3])
 #qlapsb=qsessionOverride(qlapsb,0,1500,3000)
 qlapsb=quali_purplePatch(qlapsb)
 ```
+
 
 ```{r}
 output_files = c('*  Qualifying')
@@ -104,6 +115,13 @@ rmarkdown::render('quali_cutoff_evolution_template.Rmd',
                      qr=qr, qlapsb=qlapsb, override=override), output_file = paste(rootdir,outdir,outfile,sep='/'))
 output_files = c(output_files, paste0('\n\t* [Cutoff Time Evolution](', outdir, '/', outfile, ')' ))
 
+
+#Quali face-off 
+outfile = 'quali_faceoff.md'
+rmarkdown::render('quali_team_faceoff_template.Rmd',
+       params = list(stub=stub, outdir = outdir, rootdir=rootdir,
+                     round=round, year=year), output_file = paste(rootdir,outdir,outfile,sep='/'))
+output_files = c(output_files, paste0('\n\t* [Team Qualifying Faceoff](', outdir, '/', outfile, ')' ))
 
 writeLines(output_files, paste0(rootdir,'/SUMMARY_quali.md'))
 ```
