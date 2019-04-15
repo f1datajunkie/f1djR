@@ -247,15 +247,19 @@ def pdt_demo(df):
 _demo_rules = {'origin': "#code# was placed #position#!",
          'position': "#pos.uppercase#"}
 
-def pdt_pole(df):
-  return pandas_tracery(df, _pole_rules, "#origin#",  modifiers=[base_english,inflect_english,pytracery_logic])
+#_pole_rules_from_upto - this uses a b that lacks the current result
+# So we pass in the name of the pole and add to pevious counts
+def pdt_upto_pole(df):
+  return pandas_tracery(df, _pole_rules_from_upto, "#origin#",  modifiers=[base_english,inflect_english,pytracery_logic])
 
-_pole_rules={'origin':'''
+_pole_rules_from_upto={'origin':'''
  [branch:#polesitter#]#branch##condition#''',
  'polesitter': '#pole._branch(True, onpole, notonpole)#',
 'onpole':'''With his #polesthisyear._inc.int_to_words.ordinal# pole this season,
-this is #driver#'s #polesbeforenow._inc.int_to_words# pole position ever
+this is #driver#'s #polesbeforenow._inc.int_to_words.ordinal# pole position ever
 and #polesthiscct._inc.int_to_words.ordinal# at this circuit.''',
 'notonpole':'Missing out on pole but still on the front row...'}
 
-
+#Vettel’s pole was his 52nd in F1, his fourth in China, and Ferrari’s first in Shanghai since 2004
+#Perez scores first Q3 appearance this season
+#Grosjean gives Haas their first ever Q3 appearance in China.

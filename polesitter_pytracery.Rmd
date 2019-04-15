@@ -118,8 +118,8 @@ starts = function(driverCode, circuitRef='', year='', beforeround='', upto=FALSE
   q=paste0('SELECT COUNT(code) AS wins FROM drivers d JOIN results rs JOIN races r ',cctclause,' r.raceId=rs.raceId AND d.code IN ("',driverCode,'") AND d.driverId=rs.driverId AND rs.grid>0 ',uptoclause,yearclause,beforeroundclause)
   dbGetQuery(ergastdb, q)
 }
-#winstodate('HAM')
-polestodate('HAM',year=2018)
+#wins('HAM')
+poles('HAM',year=2018)
 ```
 
 
@@ -128,8 +128,8 @@ polestodate('HAM',year=2018)
 ```{r}
 drivercode='VET'
 year=2018
-beforeround=2
-circuit='bahrain'
+beforeround=3
+circuit='shanghai'
 
 df=data.frame(driver=drivercode)
 
@@ -154,6 +154,6 @@ df
 ```{r}
 source_python("pd_tracery_demo.py")
 
-df$result = pdt_pole(r_to_py(df, convert=T))
+df$result = pdt_upto_pole(r_to_py(df, convert=T))
 df$result
 ```
