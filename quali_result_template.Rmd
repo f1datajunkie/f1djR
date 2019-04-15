@@ -34,6 +34,7 @@ opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
 knitr::opts_chunk$set(fig.path = paste0("images/f1_" ,year, "_", stub, "-"))
 ```
 
+
 ### Qualifying Session Results
 
 The official session results were recorded as follows:
@@ -45,5 +46,6 @@ for (i in c(1,2,3)) {
 }
 
 qrtmp=rename(qrtmp, c("driverName"="DRIVER", "qspos"="POS"))
+qrtmp=qrtmp[order(qrtmp$POS),]
 kable(subset(qrtmp,select=c('POS','DRIVER','Q1',	'Q2',	'Q3')), format='markdown',row.names = FALSE)
 ```
