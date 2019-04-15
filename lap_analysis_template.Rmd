@@ -53,6 +53,7 @@ ll=merge(ll,pitstops[,c('driverId','lap','pit', 'strduration', 'rawduration')],b
 
 ll$pit[is.na(ll$pit)] = F
 
+#This needs pit times?
 ll2=rawLap_augment_laptimes(ll)
 #head(ll2)
 ```
