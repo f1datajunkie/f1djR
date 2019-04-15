@@ -13,7 +13,7 @@ F1 race report...
 library(knitr)
 knitr::opts_chunk$set(echo = FALSE)
 opts_chunk$set(fig.path = "images/f1_2018_aus-")
-
+options(sqldf.driver = "SQLite")
 library(f1djR)
 ```
 
@@ -54,9 +54,10 @@ rm(resultstmp)
 template=c(paste0("```{r battlemap_",year,"_",gp,"_{{code}}}"),
            paste0("promoter(battlemapFull_byDriver(lapTimes,'{{code}}','", year, ' ', gp, " - {{code}} Battlemap',c(-20,20)))"),
            '```')
-
+#This is if we have a factor for the code?
+#plist=intersect(c(results['code']$code),unique(lapTimes['code'])$code)
 #The list needs to be sorted in race finish order
-plist=intersect(c(c(results['code']$code),unique(lapTimes['code'])$code))
+plist=intersect(c(results$code),unique(lapTimes$code))
 #c('HAM','VET', 'VES','RIC','RAI','BOT')
 src = lapply(plist, function(code) knit_expand(text=c(template)))
 ```
@@ -113,6 +114,10 @@ promoter(race.plot.pits.dodged(pitstops))
 
 
 ## Circuit History
+
+
+
+# Lap analysis
 
 ---
 
