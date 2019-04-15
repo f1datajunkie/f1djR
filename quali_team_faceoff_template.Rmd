@@ -1,20 +1,44 @@
 ---
 title: "quali_team_faceoff_template"
-output: html_document
+output:
+  md_document:
+    variant: gfm
+    
+params:
+  session: 'quali'
+  stub: 'generic'
+  outdir: 'quali'
+  rootdir: './reports'
+  year: 2018
+  round: 1
 ---
-```{r}
+```{r q_faceoff_init, echo=FALSE}
+library(knitr)
+
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning = FALSE)
+opts_knit$set(base.dir = paste(rootdir, outdir, sep='/'))
+knitr::opts_chunk$set(fig.path = paste0("images/f1_" ,year, "_", stub, "-"))
+
+rootdir = params$rootdir
+outdir = params$outdir
+stub = params$stub
+year = params$year
+round = params$round
+
 library(f1djR)
 #button=driverResults.df('2018')
 #magnussen=driverResults.df('2014','kevin_magnussen')
-qq=qualiResults.df(2018)
+qq=qualiResults.df(2018,round)
 ```
 
-```{r}
+```{r q_faceoff_setup}
 
-
-raceoff.df=function(d1,d2){
-  raceoff=merge(d1[, c('code', 'position', 'positionText', 'round')],
-                d2[,c('code', 'position', 'positionText', 'round')],
+#retirements is used to set positionText for additional label styling
+raceoff.df=function(d1,d2, retirements=FALSE){
+  if (retirements) cols = c('code', 'position', 'positionText', 'round')
+  else cols = c('code', 'position', 'round')
+  raceoff=merge(d1[, cols],
+                d2[, cols],
                 by='round')
   raceoff$topd2=(raceoff$position.x>raceoff$position.y)
 
@@ -27,7 +51,7 @@ raceoff.df=function(d1,d2){
 
 #raceoff=raceoff.df(button,magnussen)
 
-driverPos=function(raceoff){
+driverPos=function(raceoff, retirements=FALSE){
   #Base chart
   g=ggplot(raceoff, aes(x=round))
   #Guides to highlight podium and points positions, and the back of the field
@@ -57,7 +81,7 @@ driverPos=function(raceoff){
   g
 }
 
-driverPosTeamQuali=function(raceoff){
+driverPosTeamQuali=function(raceoff, retirements=FALSE ){
   #Base chart
   g=ggplot(raceoff, aes(x=constructorId))
   #Guides to highlight podium and points positions, and the back of the field
@@ -88,27 +112,28 @@ driverPosTeamQuali=function(raceoff){
   g
 }
 
-raceoff2 = function(d1,d2){
-  raceoff=merge(d1[,c('code','position','round')],
-                d2[,c('code','position','round')],
-                by='round')
-  raceoff$topd2=(raceoff$position.x>raceoff$position.y)
-
-  #The dNpos arguments identify the max and min positions
-  raceoff=ddply(raceoff, .(round), transform,
-                d1pos = max(position.x,position.y),
-                d2pos = min(position.x,position.y))
-  raceoff
-}
+# raceoff2 = function(d1,d2){
+#   raceoff=merge(d1[,c('code','position','round')],
+#                 d2[,c('code','position','round')],
+#                 by='round')
+#   raceoff$topd2=(raceoff$position.x>raceoff$position.y)
+# 
+#   #The dNpos arguments identify the max and min positions
+#   raceoff=ddply(raceoff, .(round), transform,
+#                 d1pos = max(position.x,position.y),
+#                 d2pos = min(position.x,position.y))
+#   raceoff
+# }
 teamRaceOff = function(d1,d2){
-  raceoff = raceoff2(qq[qq$code==d1,], qq[qq$code==d2,])
+  raceoff = raceoff(qq[qq$code==d1,], qq[qq$code==d2,])
   driverPos(raceoff)
 }
 #driverPos(raceoff)
 ```
 
-```{r echo=FALSE}
-qq=qualiResults.df(2018)
+```{r q_face_off,echo=FALSE}
+#qq=qualiResults.df(year, round)
+qq=qualiResults.df(year)
 #patch
 qq$constructorId <- as.character(qq$constructorId)
 
@@ -119,7 +144,7 @@ neworder = as.character(unique(qq$constructorId[order(qq$pos )]))
 #levels=rev(levels(sizes)
 qq$constructorId = factor(qq$constructorId, levels = neworder )
 
-zz=ddply(qq, .(constructorId,round), summarise, drivers = paste(code,collapse = "::"), positions=paste(position,collapse = "::"))
+zz=ddply(qq[order(qq$code),], .(constructorId,round), summarise, drivers = paste(code,collapse = "::"), positions=paste(position,collapse = "::"))
 #strsplit(zz$drivers,'::')
 tmpr=function(x,n){
   s1=strsplit(x,'::')[[1]]
@@ -130,7 +155,7 @@ tmpri=function(x,n){
   as.integer(s1[n])
 }
 
-zz=ddply(zz, .(constructorId) ,mutate, code.x=tmpr(drivers,1), code.y=tmpr(drivers,2),
+zz=ddply(zz, .(constructorId,round ) ,mutate, code.x=tmpr(drivers,1), code.y=tmpr(drivers,2),
          position.x=tmpri(positions,1), position.y=tmpri(positions,2))
 #levels(zz$d1)=levels(qq$code)
 #levels(zz$d2)=levels(qq$code)
@@ -138,6 +163,20 @@ zz=ddply(zz, .(round,constructorId), transform,
                 d1pos=max(position.x, position.y),
                 d2pos=min(position.x, position.y))
 zz$topd2=(zz$position.x>zz$position.y)
-driverPosTeamQuali(zz)
+zz = unique(merge(zz,qq[,c('constructorId','constructorName')]))
+g=driverPosTeamQuali(zz[zz$round==round,])
+g+scale_x_discrete( labels =unique(zz$constructorName[order(zz$position.x )]))+ theme(axis.text.x=element_text(angle=60,hjust=1))+ labs(x=NULL,
+               title=paste('Qualifying Face off'),
+               subtitle="Comparing how drivers compare in each team",
+               caption="Data from Ergast database, ergast.com/mrd")
+
+
 #f1_2018_aus_quali_intra_faceoff
+#driverPos(zz[zz$constructorId=='williams',])+xlim(1,21)
+
+#hamilton=driverResults.df('2018','hamilton')
+#bottas=driverResults.df('2018','bottas')
+#raceoff=raceoff.df(hamilton,bottas)
+#raceoff
 ```
+
